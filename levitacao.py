@@ -7,7 +7,7 @@ class SimuladorOndas:
     _pSI = {'L':1, 'T':1, 'M':1e3}
     
     
-    def __init__(self,rhoSI = 1.2, c0SI = 343, f0SI=40e3, uL='mm', uT='ms', uM='g'):
+    def __init__(self,rhoSI = 1.2, c0SI = 343, f0SI=40e3, uL='mm', uT='ms', uM='g', nome = ""):
         if(len(uL)==1): self.pL=""
         else: self.pL = uL[0]
         if(len(uM)==1): self.pM=""
@@ -26,19 +26,75 @@ class SimuladorOndas:
         self.refletoresEmissores = []
         self.nomeEmissores = []
         
+        self.nome = nome
         
+        if self.nome !="":
+          f = open(self.nome + '_Simulacao.txt', "w")
+          f.write("rhoSI = 1.2, c0SI = 343, f0SI=40e3, uL="+uL+", uT="+uT+", uM="+uM+"\n")
+          f.write("Emissores\n")
+          f.write("a, da, N, P, U0, fase, nome\n")
+          f.write("Refletores\n")
+          f.write("a, da, N, P, nome\n")
+          f.write("Bolas\n")
+          f.write("r, n_pontos_eq, P, nome\n")
+          f.close()
         
     def criaRefletor(self, a, da, n, P, nome=""):
+        
+        f = open(self.nome + '_Simulacao.txt', "r")
+        ntexto = ""
+        for i in range(0,5):
+            ntexto = ntexto + f.readline()
+
+        for i in self.emissores :
+            ntexto = ntexto + f.readline()
+        
+        for i in self.refletores :
+            ntexto = ntexto + f.readline()
+            
+        ntexto = ntexto +str(a)+","+str(da)+","+str(n)+","+str(P) + ","+str(nome) + "\n"
+        
+        linha = f.readline()
+        while linha:
+            ntexto = ntexto + linha
+            linha = f.readline()
+        f.close()
+        
+        f = open(self.nome + '_Simulacao.txt', "w")
+        f.write(ntexto)
+        f.close()
+        
         self.refletores.append(self.Refletor(self, a, da, n, P))
         self.nomeRefletores.append(nome)
         
     def criaEmissor(self, a, da, n, P, U0, fase=0,nome=""):
+        f = open(self.nome + '_Simulacao.txt', "r")
+        ntexto = ""
+        for i in range(0,3):
+            ntexto = ntexto + f.readline()
+
+        for i in self.emissores :
+            ntexto = ntexto + f.readline()
+
+        ntexto = ntexto +str(a)+","+str(da)+","+str(n)+","+str(P)+","+ str(U0) + ","+str(nome) + "\n"
+        print (ntexto)
+        linha = f.readline()
+        while linha:
+            ntexto = ntexto + linha
+            linha = f.readline()
+        f.close()
+        
+        f = open(self.nome + '_Simulacao.txt', "w")
+        f.write(ntexto)
+        f.close()
+        
         self.emissores.append(self.Emissor(self, a, da, n, P, U0, fase))
         self.nomeEmissores.append(nome)
         
         self.refletoresEmissores.append(self.Refletor(self, a, da, n, P))
-    
-    def criaBola(self, r, n, P0, nome = ""):
+        
+        
+    def criaBola(self, r, n, P0, nome = ""):        
         self.refletores.append(self.Bola(self, r, n, P0))
         self.nomeRefletores.append(nome)
         
@@ -92,6 +148,18 @@ class SimuladorOndas:
                    P = np.add(P, R.pressao(Pts,Pinc))     
                 Ptotal.append(P)
                 
+        if self.nome != "":
+            ca = "x,y,z"
+            for i in range (0, len(Ptotal)):
+                ca = ca +  ",nref " + str(i)
+                
+            dados = np.array([*np.transpose(Pts), *Ptotal])
+            dados = np.transpose(dados)
+            
+         
+            np.savetxt(self.nome + '_pressao.csv',dados, header=ca, delimiter=',')
+            print("dados salvos em .csv")
+        
         return Ptotal
         
     class Emissor():
