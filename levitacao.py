@@ -45,6 +45,7 @@ class SimuladorOndas:
     def calculaP(self, Pts, Nref):
         refEff = np.concatenate((self.refletoresEmissores, self.refletores))#isso garante que a lista começa sempre pelos emissores fazendo papel de refletores
         Ptotal = [] 
+        #T-->M
         P = np.zeros(len(Pts))
         for em in self.emissores:
            P = np.add(P, em.pressao(Pts))     
@@ -53,28 +54,44 @@ class SimuladorOndas:
             A = []
             for ref in refEff:
                A.append(ref.superficie()) 
-               Pint = []#guarda o valor da pressão intermediária na superficie dos refletores
+            A = np.array(A)
             #T-->R
-            P = np.zeros(A.shape())
+            P = np.zeros([np.shape(A)[0],np.shape(A)[1]])
             for T, i in zip(self.emissores, range(0, len(self.emissores))):
                 PT =[]
                 for Ai, j in zip(A, range(0,len(A))):
                     if(j!=i):
                         PT.append(T.pressao(Ai))
                     else:
-                        PT.append(np.zeros(Ai.shape()))
+                        PT.append(np.zeros(np.shape(Ai)[0]))
                 P = np.add(P, PT)
+            Pint = P #guarda o valor da pressão intermediária na superficie dos refletores
+            
+            #R-->M
+            P = np.zeros(len(Pts))
+            for R, Pinc in zip(refEff, Pint):
+               P = np.add(P, R.pressao(Pts,Pinc))     
+            Ptotal.append(P)
+            
+            for N in range (0,Nref-1):
+                #R-->R
+                P = np.zeros([np.shape(A)[0],np.shape(A)[1]])
+                for R, Pinc, i in zip(refEff,Pint, range(0, len(refEff))):
+                    PT =[]
+                    for Ai, j in zip(A, range(0,len(A))):
+                        if(j!=i):
+                            PT.append(R.pressao(Ai, Pinc))
+                        else:
+                            PT.append(np.zeros(np.shape(Ai)[0]))
+                    P = np.add(P, PT)
+                Pint = P #guarda o valor da pressão intermediária na superficie dos refletores
                 
-            #R-->R
-
-            for R, i in zip(refEff, range(0, len(refEff))):
-                PT =[]
-                for Ai, j in zip(A, range(0,len(A))):
-                    if(j!=i):
-                        PT.append(R.pressao(Ai))
-                    else:
-                        PT.append(np.zeros(Ai.shape()))
-                P = np.add(P, PT)
+                #R-->M
+                P = np.zeros(len(Pts))
+                for R, Pinc in zip(refEff, Pint):
+                   P = np.add(P, R.pressao(Pts,Pinc))     
+                Ptotal.append(P)
+                
         return Ptotal
         
     class Emissor():
@@ -320,13 +337,25 @@ for zi in zm:
 SO.criaEmissor(7e-3, 1e-3, [0,0,1], [0,0,-1e-3], 1)
 SO.criaEmissor(7e-3, 1e-3, [0,0,-1], [0,0,21e-3], 1, fase = math.pi)
 
-P = SO.calculaP(coord, 0)
+P = SO.calculaP(coord, 4)
 P0 = P[0]
+P1 = P[1] + P0
+P2 = P[2] + P1
+
+Pl = []
+for p, i in zip(P, range(0, len(P))):
+    if i == 0:
+        Pl.append(p)
+    else:
+        Pl.append(Pl[i-1]+p)
 
 fig = plt.figure(dpi=300)
 
 plt.title("pressao absoluta eixo z")
-plt.plot(1e3*zm, np.absolute(P0), marker='', linestyle ='-', label="Emissor")
+
+for i in range(0, len(Pl)):
+    plt.plot(1e3*zm, np.absolute(Pl[i]), marker='', linestyle ='-', label= str(i) + " nref")
+
 plt.xlabel( 'posição (mm)' )
 plt.ylabel( 'pressao (Pa)')
 plt.grid()
