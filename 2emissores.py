@@ -16,7 +16,7 @@ SO.criaEmissor(7e-3, 1e-3, [0,0,1], [0,0,-1e-3], 1)
 SO.criaEmissor(7e-3, 1e-3, [0,0,-1], [0,0,21e-3], 1, fase = np.pi)
 
 
-P = SO.calculaP(coord, 4)
+P, D = SO.calculaPar(coord, 4, Pressao=False, Deslocamento=True)
 
 Pl = []
 for p, i in zip(P, range(0, len(P))):
@@ -24,13 +24,22 @@ for p, i in zip(P, range(0, len(P))):
         Pl.append(p)
     else:
         Pl.append(Pl[i-1]+p)
+      
+
+Dlz = []
+for d, i in zip(D, range(0, len(D))):
+    if i == 0:
+        Dlz.append(np.transpose(d)[2])
+    else:
+        Dlz.append(Dlz[i-1]+np.transpose(d)[2])
+
 
 fig = plt.figure(dpi=300)
 
-plt.title("pressao absoluta eixo z")
+plt.title("velocidade absoluta eixo z")
 
-for i in range(0, len(Pl)):
-    plt.plot(1e3*zm, np.absolute(Pl[i]), marker='', linestyle ='-', label= str(i) + " nref")
+for i in range(0, len(Dlz)):
+    plt.plot(1e3*zm, np.absolute(Dlz[i]), marker='', linestyle ='-', label= str(i) + " nref")
 
 plt.xlabel( 'posição (mm)' )
 plt.ylabel( 'pressao (Pa)')
