@@ -107,21 +107,23 @@ class SimuladorOndas:
            P = np.add(P, em.pressao(Pts))     
         Ptotal.append(P)
         if(Nref != 0):
-            A = []
+            A = [] #aqui é importante trabalhar com listas e não com arrays pq cada elemento possui um número diferente de pontos, o que torna a lista não homogênea
             for ref in refEff:
                A.append(ref.superficie()) 
-            A = np.array(A)
+            
             #T-->R
-            P = np.zeros([np.shape(A)[0],np.shape(A)[1]])
-            for T, i in zip(self.emissores, range(0, len(self.emissores))):
-                PT =[]
-                for Ai, j in zip(A, range(0,len(A))):
+            P=[]
+            for Ai, j in zip(A, range(0,len(A))):
+                Pa = [0] * len(Ai)
+                for T, i in zip(self.emissores, range(0, len(self.emissores))):   
                     if(j!=i):
-                        PT.append(T.pressao(Ai))
-                    else:
-                        PT.append(np.zeros(np.shape(Ai)[0]))
-                P = np.add(P, PT)
+                        PAi = T.pressao(Ai)
+                        Pa = [Pa[f] + PAi[f] for f in range(len(Pa))]
+                P = P+[Pa]   
+            
             Pint = P #guarda o valor da pressão intermediária na superficie dos refletores
+            
+            #---------------------
             
             #R-->M
             P = np.zeros(len(Pts))
@@ -131,15 +133,16 @@ class SimuladorOndas:
             
             for N in range (0,Nref-1):
                 #R-->R
-                P = np.zeros([np.shape(A)[0],np.shape(A)[1]])
-                for R, Pinc, i in zip(refEff,Pint, range(0, len(refEff))):
-                    PT =[]
-                    for Ai, j in zip(A, range(0,len(A))):
+                
+                P=[]
+                for Ai, j in zip(A, range(0,len(A))):
+                    Pa = [0] * len(Ai)
+                    for R, Pinc, i in zip(refEff,Pint, range(0, len(refEff))):  
                         if(j!=i):
-                            PT.append(R.pressao(Ai, Pinc))
-                        else:
-                            PT.append(np.zeros(np.shape(Ai)[0]))
-                    P = np.add(P, PT)
+                            PAi = R.pressao(Ai, Pinc)
+                            Pa = [Pa[f] + PAi[f] for f in range(len(Pa))]
+                    P = P+[Pa]   
+                
                 Pint = P #guarda o valor da pressão intermediária na superficie dos refletores
                 
                 #R-->M

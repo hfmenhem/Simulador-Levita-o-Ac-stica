@@ -2,16 +2,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 import levitacao
 
-SO = levitacao.SimuladorOndas(uL='m', uM='kg', uT='s') 
+SO = levitacao.SimuladorOndas(uL='m', uM='kg', uT='s', nome="teste") 
 
 zm = 1e-3*np.linspace(1,20, 200)
 coord=[]
 for zi in zm:
     coord.append(np.array([0,0,zi]))
 
-SO.criaEmissor(7e-3, .5e-3, [0,0,1], [0,0,-1e-3], 1)
-SO.criaRefletor(7e-3, .5e-3, [0,0,-1], [0,0,21e-3])
-#SO.criaEmissor(7e-3, 1e-3, [0,0,-1], [0,0,21e-3], 1, fase = math.pi)
+SO.criaEmissor(7e-3, 1e-3, [0,0,1], [0,0,-1e-3], 1)
+#SO.criaRefletor(7e-3, 1e-3, [0,0,-1], [0,0,21e-3])
+#SO.criaBola(1e-3, 50, [0,0,21e-3])
+SO.criaEmissor(7e-3, 1e-3, [0,0,-1], [0,0,21e-3], 1, fase = np.pi)
 
 P = SO.calculaP(coord, 4)
 
