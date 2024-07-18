@@ -9,16 +9,11 @@ coord=[]
 for zi in zm:
     coord.append(np.array([0,0,zi]))
 
-<<<<<<< Updated upstream
-SO.criaEmissor(7e-3, .5e-3, [0,0,1], [0,0,-1e-3], 1)
-SO.criaRefletor(7e-3, .5e-3, [0,0,-1], [0,0,21e-3])
-#SO.criaEmissor(7e-3, 1e-3, [0,0,-1], [0,0,21e-3], 1, fase = math.pi)
-=======
+
 SO.criaEmissor(7e-3, 1e-3, [0,0,1], [0,0,-1e-3], 1)
 #SO.criaRefletor(7e-3, 1e-3, [0,0,-1], [0,0,21e-3])
 SO.criaBola(1e-3, 10, [0,0,21e-3])
 #SO.criaEmissor(7e-3, 1e-3, [0,0,-1], [0,0,21e-3], 1, fase = np.pi)
->>>>>>> Stashed changes
 
 P = SO.calculaP(coord, 4)
 
