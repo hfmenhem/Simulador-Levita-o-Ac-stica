@@ -26,6 +26,9 @@ class SimuladorOndas:
         self.refletoresEmissores = []
         self.nomeEmissores = []
         
+        self.bolas =[]
+        self.nomeBolas =[]
+        
         self.nome = nome
         
         if self.nome !="":
@@ -77,7 +80,6 @@ class SimuladorOndas:
             ntexto = ntexto + f.readline()
 
         ntexto = ntexto +str(a)+","+str(da)+","+str(n)+","+str(P)+","+ str(U0) + ","+str(nome) + "\n"
-        print (ntexto)
         linha = f.readline()
         while linha:
             ntexto = ntexto + linha
@@ -94,12 +96,38 @@ class SimuladorOndas:
         self.refletoresEmissores.append(self.Refletor(self, a, da, n, P))
         
         
-    def criaBola(self, r, n, P0, nome = ""):        
-        self.refletores.append(self.Bola(self, r, n, P0))
-        self.nomeRefletores.append(nome)
+    def criaBola(self, r, n, P0, nome = ""):
+        f = open(self.nome + '_Simulacao.txt', "r")
+        ntexto = ""
+        for i in range(0,7):
+            ntexto = ntexto + f.readline()
+
+        for i in self.emissores :
+            ntexto = ntexto + f.readline()
+        
+        for i in self.refletores :
+            ntexto = ntexto + f.readline()
+        
+        for i in self.bolas :
+            ntexto = ntexto + f.readline()
+            
+        ntexto = ntexto +str(r)+","+str(n)+","+str(P0) + ","+str(nome) + "\n"
+        
+        linha = f.readline()
+        while linha:
+            ntexto = ntexto + linha
+            linha = f.readline()
+        f.close()
+        
+        f = open(self.nome + '_Simulacao.txt', "w")
+        f.write(ntexto)
+        f.close()        
+        
+        self.bolas.append(self.Bola(self, r, n, P0))
+        self.nomeBolas.append(nome)
         
     def calculaP(self, Pts, Nref):
-        refEff = np.concatenate((self.refletoresEmissores, self.refletores))#isso garante que a lista começa sempre pelos emissores fazendo papel de refletores
+        refEff = np.concatenate((self.refletoresEmissores, self.refletores, self.bolas))#isso garante que a lista começa sempre pelos emissores fazendo papel de refletores; também junta as bolas como relfetores
         Ptotal = [] 
         #T-->M
         P = np.zeros(len(Pts))
