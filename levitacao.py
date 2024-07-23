@@ -222,15 +222,88 @@ class SimuladorOndas:
 
         return Ptotal, Dtotal
     
-    def calculaMedP2(self, Pts, Nref):
-        Pref, Dref = self.calculaPar(Pts, Nref, Pressao=True, Deslocamento=True)
+    def calculaPeD(self, Pts, Nref):
+        refEff = np.concatenate((self.refletoresEmissores, self.refletores, self.bolas))#isso garante que a lista começa sempre pelos emissores fazendo papel de refletores; também junta as bolas como relfetores
         
-        P = np.absolute(np.sum(Pref, axis=0))
-        D = np.absolute(np.sum(Dref, axis=0))
-
-        P2med = (P**2)/2   
-        D2med = np.sum(D**2, axis=1)/2
+        PDtotal =[]
+        #T-->M
+       
+        PD = np.zeros((len(Pts),4))
+        for em in self.emissores:
+           PD = np.add(PD, em.PeD(Pts))     
+        PDtotal.append(PD)
+        
+        if(Nref != 0):
+            A = [] #aqui é importante trabalhar com listas e não com arrays pq cada elemento possui um número diferente de pontos, o que torna a lista não homogênea
+            for ref in refEff:
+               A.append(ref.superficie()) 
             
+            #T-->R
+            P=[]
+            for Ai, j in zip(A, range(0,len(A))):
+                Pa = [0] * len(Ai)
+                for T, i in zip(self.emissores, range(0, len(self.emissores))):   
+                    if(j!=i):
+                        PAi = T.pressao(Ai)
+                        Pa = [Pa[f] + PAi[f] for f in range(len(Pa))]
+                P = P+[Pa]   
+            
+            Pint = P #guarda o valor da pressão intermediária na superficie dos refletores
+            
+            #---------------------
+            
+            #R-->M
+
+            PD = np.zeros((len(Pts),4))
+            for R, Pinc in zip(refEff, Pint):
+               PD = np.add(PD, R.PeD(Pts, Pinc))     
+            PDtotal.append(PD)
+            
+            for N in range (0,Nref-1):
+                #R-->R
+                
+                P=[]
+                for Ai, j in zip(A, range(0,len(A))):
+                    Pa = [0] * len(Ai)
+                    for R, Pinc, i in zip(refEff,Pint, range(0, len(refEff))):  
+                        if(j!=i):
+                            PAi = R.pressao(Ai, Pinc)
+                            Pa = [Pa[f] + PAi[f] for f in range(len(Pa))]
+                    P = P+[Pa]   
+                
+                Pint = P #guarda o valor da pressão intermediária na superficie dos refletores
+                
+                #R-->M
+                PD = np.zeros((len(Pts),4))
+                for R, Pinc in zip(refEff, Pint):
+                   PD = np.add(PD, R.PeD(Pts, Pinc))        
+                PDtotal.append(PD)
+                
+        if self.nome != "":
+            ca = "x , y, z"
+
+            for i in range (0, Nref+1):
+                ca = ca +  ", Pnref " + str(i)+  ", Dxnref " + str(i) + ", Dynref " + str(i) + ", Dznref " + str(i)
+                
+            PDprint = np.transpose(PDtotal, axes = (0,2,1))
+            PDprint = np.concatenate(PDprint)
+            dados = np.array([*np.transpose(Pts), *PDprint])
+            dados = np.transpose(dados)
+            
+            np.savetxt(self.nome + '_pressao.csv',dados, header=ca, delimiter=',')
+            print("dados salvos em .csv")
+
+        return PDtotal
+    
+    def calculaMedP2(self, Pts, Nref):
+        PDref = self.calculaPeD(Pts, Nref)
+        
+        PD = np.absolute(np.sum(PDref, axis=0))
+        P = PD[:,0]
+        D = np.delete(PD, 0, 1)
+        P2med = (P**2)/2 
+        D2med = np.sum(D**2, axis=1)/2
+      
         medP2 =(P2med/(2*self.rho*(self.c0**2))) -(D2med*self.rho/2)
         
         if self.nome != "":
@@ -337,6 +410,28 @@ class SimuladorOndas:
                     V.append([0,0,0])
             return V
         
+        def PeD(self, Pts0):
+            Pts = np.array(Pts0)
+            PD =[]
+            for Pt in Pts:
+                if (np.dot((Pt-self.Pem[0]), self.N)>0): #checa se o ponto  está na frente do emissor
+                    Pi=0
+                    Vi = 0
+                    for dr in  self.Pem:
+                        rlinha = np.linalg.norm(Pt-dr)
+                        rlinhadir = (Pt-dr)/rlinha
+                        dP = (1/rlinha)*(math.e**(complex(0,-1)*self.k*rlinha))*self.dAEf
+                        Pi = Pi+dP
+                        dV = rlinhadir*((complex(0,1)/rlinha)-self.k)*dP                
+                        Vi = Vi+dV
+                    Pi = (complex(0,1)*self.rho*self.c0*self.U/self.Lamb)*Pi
+                    Vi = (complex(0,-1)*self.U/(self.Lamb*self.k))*Vi
+                    
+                    PD.append((Pi, *Vi))
+                else:
+                    PD.append([complex(0,0)*4])
+            return PD
+            
     class Bola():
         
         def __init__(self, outer, r, n, P0):
@@ -404,6 +499,28 @@ class SimuladorOndas:
                 V.append(Vi) 
                 
             return V
+        
+        def PeD(self,Pts0, Pinc):
+            Pts = np.array(Pts0)
+            if len(self.Pbo)!=len(Pinc):
+                raise Exception("tamanho de Pem deve ser igual ao de Pinc")
+            PD=[]
+
+            for Pt in Pts:
+                Pi=0
+                Vi=0
+                for dr, da, Pin in  zip(self.Pbo, self.A, Pinc):
+                    rlinha = np.linalg.norm(Pt-dr)
+                    rlinhadir = (Pt-dr)/rlinha
+                    dP = Pin*(1/rlinha)*(math.e**(complex(0,-1)*self.k*rlinha))*da
+                    Pi = Pi+dP
+                    dV = rlinhadir*((complex(0,1)/rlinha)-self.k)*dP
+                    Vi = Vi+dV
+                Pi = Pi*complex(0,1)/self.Lamb
+      
+                Vi = Vi*(complex(0,-1)/(self.Lamb*self.k*self.rho*self.c0))
+                PD.append((Pi, *Vi)) 
+            return PD
 
     class Refletor():
         
@@ -484,6 +601,30 @@ class SimuladorOndas:
                 V.append(Vi) 
                 
             return V
+        
+        def PeD(self,Pts0, Pinc):
+            Pts = np.array(Pts0)
+            if len(self.Prf)!=len(Pinc):
+                raise Exception("tamanho de Pem deve ser igual ao de Pinc")
+            PD=[]
+            
+            for Pt in Pts:
+                Pi=0
+                Vi=0
+                for dr, Pin in  zip(self.Prf, Pinc):
+                    rlinha = np.linalg.norm(Pt-dr)
+                    rlinhadir = (Pt-dr)/rlinha
+                    dP = Pin*(1/rlinha)*(math.e**(complex(0,-1)*self.k*rlinha))*self.dAEf
+                    Pi = Pi+dP
+                    dV = rlinhadir*((complex(0,1)/rlinha)-self.k)*dP                   
+                    Vi = Vi+dV
+                Pi = Pi*complex(0,1)/self.Lamb
+                  
+                Vi = Vi*(complex(0,-1)/(self.Lamb*self.k*self.rho*self.c0))
+                PD.append((Pi, *Vi))
+            return PD
+        
+        
 
               
 
