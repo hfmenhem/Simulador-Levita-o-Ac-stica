@@ -444,22 +444,26 @@ class SimuladorOndas:
             self.Lamb = self.c0/self.f
             
             self.P=P0            
-            self.Pbo = []
-            self.A = []
-            theta  = np.linspace(math.pi/n,math.pi, n-1)
-            for t in theta:
-                phi = np.linspace(0,math.pi*2, math.ceil(n*math.sin(t)))
-                dA = (r**2)*(math.pi/n)*(math.pi*2/math.ceil(n*math.sin(t)))*math.sin(t)
-                for ph in phi:
-                    dP = [r*math.sin(t)*math.cos(ph)+self.P[0],r*math.sin(t)*math.sin(ph)+self.P[1], r*math.cos(t)+self.P[2]]
-                    self.Pbo.append(dP)
-                    self.A.append(dA)
-            #correção da área:
-            A=0
-            for dA in self.A:
-                A = A+ dA
-            k = (4*math.pi*r**2)/A
-            self.A = np.multiply(k, self.A)
+            if n > 1:
+                self.Pbo = []
+                self.A = []
+                theta  = np.linspace(math.pi/n,math.pi, n-1)
+                for t in theta:
+                    phi = np.linspace(0,math.pi*2, math.ceil(n*math.sin(t)))
+                    dA = (r**2)*(math.pi/n)*(math.pi*2/math.ceil(n*math.sin(t)))*math.sin(t)
+                    for ph in phi:
+                        dP = [r*math.sin(t)*math.cos(ph)+self.P[0],r*math.sin(t)*math.sin(ph)+self.P[1], r*math.cos(t)+self.P[2]]
+                        self.Pbo.append(dP)
+                        self.A.append(dA)
+                #correção da área:
+                A=0
+                for dA in self.A:
+                    A = A+ dA
+                k = (4*math.pi*(r**2))/A
+                self.A = np.multiply(k, self.A)
+            else:
+                self.Pbo = [self.P]
+                self.A = [(4*math.pi*(r**2))]
         
 
         def superficie(self):
