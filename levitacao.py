@@ -225,23 +225,11 @@ class SimuladorOndas:
     def calculaMedP2(self, Pts, Nref):
         Pref, Dref = self.calculaPar(Pts, Nref, Pressao=True, Deslocamento=True)
         
-        P = 0
-        for p in Pref:
-            P = P+p
-        P = np.absolute(P)
-        
-        D=np.zeros((len(Pts),3))
-        for d in Dref:
-            D = D + d
-        D = np.absolute(D)
-        
-        P2med = np.zeros(len(P))
-        for p, i in zip(P, range(0,len(P))):
-            P2med[i] = (p**2)/2
-            
-        D2med = np.zeros(len(D))
-        for d, i in zip(D, range(0,len(D))):
-            D2med[i] = ((d[0]**2) +(d[1]**2)+(d[2]**2))/2
+        P = np.absolute(np.sum(Pref, axis=0))
+        D = np.absolute(np.sum(Dref, axis=0))
+
+        P2med = (P**2)/2   
+        D2med = np.sum(D**2, axis=1)/2
             
         medP2 =(P2med/(2*self.rho*(self.c0**2))) -(D2med*self.rho/2)
         
@@ -257,13 +245,9 @@ class SimuladorOndas:
         return medP2
     
     def reCalculaMedP2(self, P, D):  #função que calcula a pressão em segunda ordem, porém já recebendo os valores de pressão e deslocamento em 1 ordem      
-        P2med = np.zeros(len(P))
-        for p, i in zip(P, range(0,len(P))):
-            P2med[i] = (p**2)/2
-            
-        D2med = np.zeros(len(D))
-        for d, i in zip(D, range(0,len(D))):
-            D2med[i] = ((d[0]**2) +(d[1]**2)+(d[2]**2))/2
+
+        P2med = (np.array(P)**2)/2   
+        D2med = np.sum(np.array(D)**2, axis=1)/2
             
         medP2 =(P2med/(2*self.rho*(self.c0**2))) -(D2med*self.rho/2)
 
@@ -378,10 +362,10 @@ class SimuladorOndas:
             #correção da área:
             A=0
             for dA in self.A:
-                A = dA
+                A = A+ dA
             k = (4*math.pi*r**2)/A
-            for dA in self.A:
-                dA=k*dA
+            self.A = np.multiply(k, self.A)
+        
 
         def superficie(self):
             return self.Pbo
