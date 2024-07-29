@@ -145,62 +145,66 @@ class SimuladorOndas:
             Dtotal.append(D)
         
         if(Nref != 0):
-            A = [] #aqui é importante trabalhar com listas e não com arrays pq cada elemento possui um número diferente de pontos, o que torna a lista não homogênea
-            for ref in refEff:
-               A.append(ref.superficie()) 
+            A = []
+            indA = np.zeros((len(refEff), 2), dtype=np.integer)
+            for i, ref in enumerate(refEff):
+                A.append(ref.superficie()) 
+                if i!=0:
+                    indA[i,0] = indA[i-1, 1]+1
+                    indA[i,1] = indA[i,0]+len(ref.superficie())-1
+                else:
+                    indA[i,1] = len(ref.superficie())-1
+            A = np.concatenate(A) 
             
             #T-->R
-            P=[]
-            for Ai, j in zip(A, range(0,len(A))):
-                Pa = [0] * len(Ai)
-                for T, i in zip(self.emissores, range(0, len(self.emissores))):   
-                    if(j!=i):
-                        PAi = T.pressao(Ai)
-                        Pa = [Pa[f] + PAi[f] for f in range(len(Pa))]
-                P = P+[Pa]   
-            
+            P=np.zeros(len(A))
+            for T, ind in zip(self.emissores, indA):   
+                a1,a2,a3 =np.split(A,[ind[0],1+ind[1]], axis=0)
+                p1 = T.pressao(a1)
+                p2 = np.zeros(len(a2))
+                p3 = T.pressao(a3)
+                P = P + np.concatenate((p1, p2, p3))
             Pint = P #guarda o valor da pressão intermediária na superficie dos refletores
             
             #---------------------
             
-            #R-->M
+            #R-->M                
             if Pressao:
                 P = np.zeros(len(Pts))
-                for R, Pinc in zip(refEff, Pint):
-                   P = np.add(P, R.pressao(Pts,Pinc))     
+                for R, ind in zip(refEff, indA):
+                   P = P + R.pressao(Pts,Pint[ind[0]:ind[1]+1])     
                 Ptotal.append(P)
             
             if Deslocamento:
                 D = np.zeros((len(Pts),3))
-                for R, Pinc in zip(refEff, Pint):
-                   D = np.add(D, R.deslocamento(Pts,Pinc))  
+                for R, ind in zip(refEff, indA):
+                   D = D + R.deslocamento(Pts,Pint[ind[0]:ind[1]+1])  
                 Dtotal.append(D)
-            
+                
+                  
             for N in range (0,Nref-1):
                 #R-->R
                 
-                P=[]
-                for Ai, j in zip(A, range(0,len(A))):
-                    Pa = [0] * len(Ai)
-                    for R, Pinc, i in zip(refEff,Pint, range(0, len(refEff))):  
-                        if(j!=i):
-                            PAi = R.pressao(Ai, Pinc)
-                            Pa = [Pa[f] + PAi[f] for f in range(len(Pa))]
-                    P = P+[Pa]   
-                
+                P=np.zeros(len(A))
+                for R, ind in zip(refEff, indA):   
+                    a1,a2,a3 =np.split(A,[ind[0],1+ind[1]], axis=0)
+                    p1 = R.pressao(a1, Pint[ind[0]:1+ind[1]])
+                    p2 = np.zeros(len(a2))
+                    p3 = R.pressao(a3, Pint[ind[0]:1+ind[1]])
+                    P = P + np.concatenate((p1, p2, p3))
                 Pint = P #guarda o valor da pressão intermediária na superficie dos refletores
-                
-                #R-->M
+               
+                #R-->M                
                 if Pressao:
                     P = np.zeros(len(Pts))
-                    for R, Pinc in zip(refEff, Pint):
-                       P = np.add(P, R.pressao(Pts,Pinc))     
+                    for R, ind in zip(refEff, indA):
+                       P = P + R.pressao(Pts,Pint[ind[0]:ind[1]+1])     
                     Ptotal.append(P)
                 
                 if Deslocamento:
                     D = np.zeros((len(Pts),3))
-                    for R, Pinc in zip(refEff, Pint):
-                       D = np.add(D, R.deslocamento(Pts,Pinc))  
+                    for R, ind in zip(refEff, indA):
+                       D = D + R.deslocamento(Pts,Pint[ind[0]:ind[1]+1])  
                     Dtotal.append(D)
                 
         if self.nome != "":
@@ -234,49 +238,54 @@ class SimuladorOndas:
         PDtotal.append(PD)
         
         if(Nref != 0):
-            A = [] #aqui é importante trabalhar com listas e não com arrays pq cada elemento possui um número diferente de pontos, o que torna a lista não homogênea
-            for ref in refEff:
-               A.append(ref.superficie()) 
-            
+            A = []
+            indA = np.zeros((len(refEff), 2), dtype=np.integer)
+            for i, ref in enumerate(refEff):
+                A.append(ref.superficie()) 
+                if i!=0:
+                    indA[i,0] = indA[i-1, 1]+1
+                    indA[i,1] = indA[i,0]+len(ref.superficie())-1
+                else:
+                    indA[i,1] = len(ref.superficie())-1
+            A = np.concatenate(A)
+                    
             #T-->R
-            P=[]
-            for Ai, j in zip(A, range(0,len(A))):
-                Pa = [0] * len(Ai)
-                for T, i in zip(self.emissores, range(0, len(self.emissores))):   
-                    if(j!=i):
-                        PAi = T.pressao(Ai)
-                        Pa = [Pa[f] + PAi[f] for f in range(len(Pa))]
-                P = P+[Pa]   
-            
+
+            P=np.zeros(len(A))
+            for T, ind in zip(self.emissores, indA):   
+                a1,a2,a3 =np.split(A,[ind[0],1+ind[1]], axis=0)
+                p1 = T.pressao(a1)
+                p2 = np.zeros(len(a2))
+                p3 = T.pressao(a3)
+                P = P + np.concatenate((p1, p2, p3))
             Pint = P #guarda o valor da pressão intermediária na superficie dos refletores
             
             #---------------------
             
             #R-->M
-
+    
             PD = np.zeros((len(Pts),4))
-            for R, Pinc in zip(refEff, Pint):
-               PD = np.add(PD, R.PeD(Pts, Pinc))     
+            for R, ind in zip(refEff, indA):
+               PD = PD + R.PeD(Pts, Pint[ind[0]:ind[1]+1])
             PDtotal.append(PD)
             
             for N in range (0,Nref-1):
                 #R-->R
                 
-                P=[]
-                for Ai, j in zip(A, range(0,len(A))):
-                    Pa = [0] * len(Ai)
-                    for R, Pinc, i in zip(refEff,Pint, range(0, len(refEff))):  
-                        if(j!=i):
-                            PAi = R.pressao(Ai, Pinc)
-                            Pa = [Pa[f] + PAi[f] for f in range(len(Pa))]
-                    P = P+[Pa]   
-                
+                P=np.zeros(len(A))
+                for R, ind in zip(refEff, indA):   
+                    a1,a2,a3 =np.split(A,[ind[0],1+ind[1]], axis=0)
+                    p1 = R.pressao(a1, Pint[ind[0]:1+ind[1]])
+                    p2 = np.zeros(len(a2))
+                    p3 = R.pressao(a3, Pint[ind[0]:1+ind[1]])
+                    P = P + np.concatenate((p1, p2, p3))
                 Pint = P #guarda o valor da pressão intermediária na superficie dos refletores
                 
                 #R-->M
+                
                 PD = np.zeros((len(Pts),4))
-                for R, Pinc in zip(refEff, Pint):
-                   PD = np.add(PD, R.PeD(Pts, Pinc))        
+                for R, ind in zip(refEff, indA):
+                   PD = PD + R.PeD(Pts, Pint[ind[0]:ind[1]+1])
                 PDtotal.append(PD)
                 
         if self.nome != "":
@@ -453,7 +462,7 @@ class SimuladorOndas:
                     dA = (r**2)*(math.pi/n)*(math.pi*2/math.ceil(n*math.sin(t)))*math.sin(t)
                     for ph in phi:
                         dP = [r*math.sin(t)*math.cos(ph)+self.P[0],r*math.sin(t)*math.sin(ph)+self.P[1], r*math.cos(t)+self.P[2]]
-                        self.Pbo.append(dP)
+                        self.Pbo.append(np.array(dP))
                         self.A.append(dA)
                 #correção da área:
                 A=0
