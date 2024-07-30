@@ -304,6 +304,110 @@ class SimuladorOndas:
 
         return PDtotal
     
+    def calculaPar2Bola(self, PtsMed, PtsBo, Nref, Raio):
+        refEff = np.concatenate((self.refletoresEmissores, self.refletores))#isso garante que a lista começa sempre pelos emissores fazendo papel de refletores
+            
+        PintTotal=[]
+        
+        if(Nref != 0):
+            A = []
+            indA = np.zeros((len(refEff), 2), dtype=np.integer)
+            for i, ref in enumerate(refEff):
+                A.append(ref.superficie()) 
+                if i!=0:
+                    indA[i,0] = indA[i-1, 1]+1
+                    indA[i,1] = indA[i,0]+len(ref.superficie())-1
+                else:
+                    indA[i,1] = len(ref.superficie())-1
+            A = np.concatenate(A)
+                    
+            #T-->R
+
+            P=np.zeros(len(A))
+            for T, ind in zip(self.emissores, indA):   
+                a1,a2,a3 =np.split(A,[ind[0],1+ind[1]], axis=0)
+                p1 = T.pressao(a1)
+                p2 = np.zeros(len(a2))
+                p3 = T.pressao(a3)
+                P = P + np.concatenate((p1, p2, p3))
+            Pint = P #guarda o valor da pressão intermediária na superficie dos refletores
+            PintTotal.append(P)
+            
+            
+            for N in range (0,Nref-1):
+                #R-->R
+                
+                P=np.zeros(len(A))
+                for R, ind in zip(refEff, indA):   
+                    a1,a2,a3 =np.split(A,[ind[0],1+ind[1]], axis=0)
+                    p1 = R.pressao(a1, Pint[ind[0]:1+ind[1]])
+                    p2 = np.zeros(len(a2))
+                    p3 = R.pressao(a3, Pint[ind[0]:1+ind[1]])
+                    P = P + np.concatenate((p1, p2, p3))
+                Pint = P #guarda o valor da pressão intermediária na superficie dos refletores
+                PintTotal.append(P)
+            
+            PrefBol = np.sum(np.delete(PintTotal, len(PintTotal)-1, axis=0), axis = 0)
+                                       
+
+        PrefMed = np.sum(PintTotal, axis = 0)
+        
+           
+        
+        PDr = np.zeros((len(PtsMed),4))
+        Pr = np.zeros(len(PtsBo))
+        if (Nref != 0):
+            for R, ind in zip(refEff, indA):
+               PDr = PDr + R.PeD(PtsMed, PrefMed[ind[0]:ind[1]+1])
+              
+            for R, ind in zip(refEff, indA):
+               Pr = Pr + R.pressao(PtsBo, PrefBol[ind[0]:ind[1]+1])
+        
+        
+        
+        PDt = np.zeros((len(PtsMed),4))
+        for em in self.emissores:
+           PDt = PDt + em.PeD(PtsMed)     
+        Pt = np.zeros(len(PtsBo))
+        for em in self.emissores:
+           Pt = Pt + em.pressao(PtsBo) 
+           
+        PeD0med = PDt+PDr
+        PBol = Pt+Pr
+      
+        PeD1Med = np.zeros((len(PtsBo), len(PtsMed), 4), dtype = np.complexfloating)
+        
+        k = 2*math.pi*self.f/self.c0
+        A = 4*math.pi*(Raio**2)
+        multV = (complex(0,-1)/((self.c0/self.f)*k*self.rho*self.c0))
+        multP = complex(0,1)/(self.c0/self.f)
+        for i, med in enumerate(PtsMed):
+            
+            for j, bo in enumerate(PtsBo):
+                rlinha = np.linalg.norm(med-bo)
+                rlinhadir = (med-bo)/rlinha
+                P = PBol[j]*(1/rlinha)*(math.e**(complex(0,-1)*k*rlinha))*A
+                V = rlinhadir*((complex(0,1)/rlinha)-k)*P         
+                
+                P = P*multP
+                V = V*multV
+                
+                PeD1Med[j,i, :] = PeD0med[i, :] + (P, *V)
+                
+                
+                
+        P = np.absolute(PeD1Med[:,:,0])
+        D = np.absolute(np.delete(PeD1Med, 0, axis = 2))
+        
+        P2med = (P**2)/2 
+        D2med = np.sum(D**2, axis=2)/2
+        
+        
+        Gorkov =(P2med/(2*self.rho*(self.c0**2))) -(D2med*self.rho*3/4)
+        
+        return Gorkov
+             
+    
     def calculaMedP2(self, Pts, Nref):
         PDref = self.calculaPeD(Pts, Nref)
         
@@ -325,6 +429,28 @@ class SimuladorOndas:
             print("dados salvos em .csv")
 
         return medP2
+    
+    def calculaGorkov(self, Pts, Nref):
+        PDref = self.calculaPeD(Pts, Nref)
+        
+        PD = np.absolute(np.sum(PDref, axis=0))
+        P = PD[:,0]
+        D = np.delete(PD, 0, 1)
+        P2med = (P**2)/2 
+        D2med = np.sum(D**2, axis=1)/2
+      
+        Gorkov =(P2med/(2*self.rho*(self.c0**2))) -(D2med*self.rho*3/4)
+        
+        if self.nome != "":
+            ca = "x, y, z, Gorkov"
+           
+            dados = np.array([*np.transpose(Pts), Gorkov])
+            dados = np.transpose(dados)
+            
+            np.savetxt(self.nome + '_Gorkov.csv',dados, header=ca, delimiter=',')
+            print("dados salvos em .csv")
+
+        return Gorkov
     
     def reCalculaMedP2(self, P, D):  #função que calcula a pressão em segunda ordem, porém já recebendo os valores de pressão e deslocamento em 1 ordem      
 
