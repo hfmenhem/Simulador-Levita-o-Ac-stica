@@ -14,22 +14,22 @@ SO.criaEmissor(7e-3, 1e-3, [0,0,1], [0,0,-1e-3], 1)
 SO.criaEmissor(7e-3, 1e-3, [0,0,-1], [0,0,21e-3], 1, fase = np.pi)
 
 
-F = SO.calculaForca(coord, 0)
-G = SO.calculaGorkov(coord, 0)
-
+F, G = SO.calculaForca(coord, 2, CalGorcov=True)
 
 fig = plt.figure(dpi=300)
 
-plt.title("Força no eixo z")
-
 plt.subplot(2,1,1)
 plt.plot(1e3*zm, F[:,2], marker='', linestyle ='-', label = "Força")
-plt.subplot(2,1,2)
-plt.plot(1e3*zm, G, marker='', linestyle ='-', label = "Gor'kov")
-
-plt.xlabel( 'posição (mm)' )
-plt.ylabel( 'pressao (Pa)')
+plt.ylabel( 'Força (N/m^3) (Pa)')
 plt.grid()
-plt.legend()      
+plt.title("Força")
+plt.subplot(2,1,2)
+
+
+plt.plot(1e3*zm, G, marker='', linestyle ='-', label = "Gor'kov")
+plt.xlabel( 'posição (mm)' )
+plt.ylabel( 'Potencial (J/m^3)')
+plt.title("Potencial de Gor'kov")
+plt.grid()
 
 plt.show()

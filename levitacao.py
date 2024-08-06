@@ -226,16 +226,22 @@ class SimuladorOndas:
 
         return Ptotal, Dtotal
     
-    def calculaPeD(self, Pts, Nref):
+    def calculaPeD(self, Pts, Nref, forca = False):
         refEff = np.concatenate((self.refletoresEmissores, self.refletores, self.bolas))#isso garante que a lista começa sempre pelos emissores fazendo papel de refletores; também junta as bolas como relfetores
         
         PDtotal =[]
         #T-->M
        
-        PD = np.zeros((len(Pts),4))
-        for em in self.emissores:
-           PD = np.add(PD, em.PeD(Pts))     
-        PDtotal.append(PD)
+        if forca:
+           Par = np.zeros((len(Pts),13))
+           for em in self.emissores:
+              Par = np.add(Par, em.ParForca(Pts))     
+           PDtotal.append(Par) 
+        else:
+            PD = np.zeros((len(Pts),4))
+            for em in self.emissores:
+               PD = np.add(PD, em.PeD(Pts))     
+            PDtotal.append(PD)
         
         if(Nref != 0):
             A = []
@@ -263,11 +269,18 @@ class SimuladorOndas:
             #---------------------
             
             #R-->M
-    
-            PD = np.zeros((len(Pts),4))
-            for R, ind in zip(refEff, indA):
-               PD = PD + R.PeD(Pts, Pint[ind[0]:ind[1]+1])
-            PDtotal.append(PD)
+            if forca:
+               Par = np.zeros((len(Pts),13))
+               for R, ind in zip(refEff, indA):
+                  Par = Par + R.ParForca(Pts, Pint[ind[0]:ind[1]+1])
+               PDtotal.append(Par)
+            else:
+                PD = np.zeros((len(Pts),4))
+                for R, ind in zip(refEff, indA):
+                   PD = PD + R.PeD(Pts, Pint[ind[0]:ind[1]+1])
+                PDtotal.append(PD)
+                
+            
             
             for N in range (0,Nref-1):
                 #R-->R
@@ -283,16 +296,26 @@ class SimuladorOndas:
                 
                 #R-->M
                 
-                PD = np.zeros((len(Pts),4))
-                for R, ind in zip(refEff, indA):
-                   PD = PD + R.PeD(Pts, Pint[ind[0]:ind[1]+1])
-                PDtotal.append(PD)
+                if forca:
+                   Par = np.zeros((len(Pts),13))
+                   for R, ind in zip(refEff, indA):
+                      Par = Par + R.ParForca(Pts, Pint[ind[0]:ind[1]+1])
+                   PDtotal.append(Par)
+                else:
+                    PD = np.zeros((len(Pts),4))
+                    for R, ind in zip(refEff, indA):
+                       PD = PD + R.PeD(Pts, Pint[ind[0]:ind[1]+1])
+                    PDtotal.append(PD)
                 
         if self.nome != "":
             ca = "x , y, z"
-
-            for i in range (0, Nref+1):
-                ca = ca +  ", Pnref " + str(i)+  ", Dxnref " + str(i) + ", Dynref " + str(i) + ", Dznref " + str(i)
+            
+            if forca:
+                for i in range (0, Nref+1):
+                    ca = ca +  ", Pnref " + str(i)+  ", Dxnref " + str(i) + ", Dynref " + str(i) + ", Dznref " + str(i) + ", dUx/dxNref " + str(i) + ", dUy/dxNref " + str(i)+ ", dUz/dxNref " + str(i)+ ", dUx/dyNref " + str(i) + ", dUy/dyNref " + str(i)+ ", dUz/dyNref " + str(i) + ", dUx/dzNref " + str(i) + ", dUy/dzNref " + str(i)+ ", dUz/dzNref " + str(i)
+            else:
+                for i in range (0, Nref+1):
+                    ca = ca +  ", Pnref " + str(i)+  ", Dxnref " + str(i) + ", Dynref " + str(i) + ", Dznref " + str(i)
                 
             PDprint = np.transpose(PDtotal, axes = (0,2,1))
             PDprint = np.concatenate(PDprint)
@@ -303,84 +326,6 @@ class SimuladorOndas:
             print("dados salvos em .csv")
 
         return PDtotal
-    
-    def calculaParForca(self, Pts, Nref):
-        refEff = np.concatenate((self.refletoresEmissores, self.refletores, self.bolas))#isso garante que a lista começa sempre pelos emissores fazendo papel de refletores; também junta as bolas como relfetores
-        
-        Partotal =[]
-        #T-->M
-       
-        Par = np.zeros((len(Pts),13))
-        for em in self.emissores:
-           Par = np.add(Par, em.ParForca(Pts))     
-        Partotal.append(Par)
-        
-        if(Nref != 0):
-            A = []
-            indA = np.zeros((len(refEff), 2), dtype=np.integer)
-            for i, ref in enumerate(refEff):
-                A.append(ref.superficie()) 
-                if i!=0:
-                    indA[i,0] = indA[i-1, 1]+1
-                    indA[i,1] = indA[i,0]+len(ref.superficie())-1
-                else:
-                    indA[i,1] = len(ref.superficie())-1
-            A = np.concatenate(A)
-                    
-            #T-->R
-
-            P=np.zeros(len(A))
-            for T, ind in zip(self.emissores, indA):   
-                a1,a2,a3 =np.split(A,[ind[0],1+ind[1]], axis=0)
-                p1 = T.pressao(a1)
-                p2 = np.zeros(len(a2))
-                p3 = T.pressao(a3)
-                P = P + np.concatenate((p1, p2, p3))
-            Pint = P #guarda o valor da pressão intermediária na superficie dos refletores
-            
-            #---------------------
-            
-            #R-->M
-    
-            PD = np.zeros((len(Pts),4))
-            for R, ind in zip(refEff, indA):
-               PD = PD + R.PeD(Pts, Pint[ind[0]:ind[1]+1])
-            PDtotal.append(PD)
-            
-            for N in range (0,Nref-1):
-                #R-->R
-                
-                P=np.zeros(len(A))
-                for R, ind in zip(refEff, indA):   
-                    a1,a2,a3 =np.split(A,[ind[0],1+ind[1]], axis=0)
-                    p1 = R.pressao(a1, Pint[ind[0]:1+ind[1]])
-                    p2 = np.zeros(len(a2))
-                    p3 = R.pressao(a3, Pint[ind[0]:1+ind[1]])
-                    P = P + np.concatenate((p1, p2, p3))
-                Pint = P #guarda o valor da pressão intermediária na superficie dos refletores
-                
-                #R-->M
-                
-                PD = np.zeros((len(Pts),4))
-                for R, ind in zip(refEff, indA):
-                   PD = PD + R.PeD(Pts, Pint[ind[0]:ind[1]+1])
-                PDtotal.append(PD)
-                
-        if self.nome != "":
-            ca = "x , y, z"
-
-            for i in range (0, Nref+1):
-                ca = ca +  ", Pnref " + str(i)+  ", Dxnref " + str(i) + ", Dynref " + str(i) + ", Dznref " + str(i)
-                
-            PDprint = np.transpose(Partotal, axes = (0,2,1))
-            PDprint = np.concatenate(PDprint)
-            dados = np.array([*np.transpose(Pts), *PDprint])
-            dados = np.transpose(dados)
-            
-            np.savetxt(self.nome + '_pressao.csv',dados, header=ca, delimiter=',')
-            print("dados salvos em .csv")
-
-        return Partotal
     
     def calculaPar2Bola(self, PtsMed, PtsBo, Nref, Raio):
         refEff = np.concatenate((self.refletoresEmissores, self.refletores))#isso garante que a lista começa sempre pelos emissores fazendo papel de refletores
@@ -530,48 +475,47 @@ class SimuladorOndas:
 
         return Gorkov
     
-    def calculaForca(self, Pts, Nref):
-        Parref = self.calculaParForca(Pts, Nref)
+    def calculaForca(self, Pts, Nref, CalGorcov = False):
+        Parref = self.calculaPeD(Pts, Nref,forca = True)
         k = 2*math.pi*self.f/self.c0
         
         Par = np.sum(Parref, axis=0)
+
         P = Par[:,[0]]
         D = Par[:, 1:4]
         GDx = Par[:, 4:7]
         GDy = Par[:, 7:10]
         GDz = Par[:, 10:]
         
-        teste=  np.multiply(np.conjugate(P), D)
         p1 = np.imag(np.multiply(np.conjugate(P), D))
-        p2 = np.real(np.conjugate(D[:,[0]])*GDx + np.conjugate(D[:,[1]])*GDy + np.conjugate(D[:,[2]])*GDz)
-
-        t1 = (p1*k/(2*self.c0))
-        t2 = (p2*self.rho*3/4)
-
+        p2 = np.real((np.conjugate(D[:,[0]])*GDx) + (np.conjugate(D[:,[1]])*GDy) + (np.conjugate(D[:,[2]])*GDz))
         
         Forca = -1*((p1*k/(2*self.c0)) -(p2*self.rho*3/4))
         
+        if CalGorcov:
+            P2med = (np.absolute(P[:,0])**2)/2 
+            D2med = np.sum(np.absolute(D)**2, axis=1)/2
+          
+            Gorkov =(P2med/(2*self.rho*(self.c0**2))) -(D2med*self.rho*3/4)
+        
         if self.nome != "":
-            ca = "x, y, z, Fx, Fy, Fz"
-           
-            dados = np.array([*np.transpose(Pts), *np.transpose(Forca)])
+            if CalGorcov:
+                ca = "x, y, z, Fx, Fy, Fz, Gor'kov"
+                dados = np.array([*np.transpose(Pts), *np.transpose(Forca), Gorkov])
+            else:
+                ca = "x, y, z, Fx, Fy, Fz"
+                dados = np.array([*np.transpose(Pts), *np.transpose(Forca)])
+            
             dados = np.transpose(dados)
             
             np.savetxt(self.nome + '_Forca.csv',dados, header=ca, delimiter=',')
             print("dados salvos em .csv")
 
-        return Forca
+        if CalGorcov:
+            return [Forca, Gorkov]
+        else:
+            return Forca
     
-    
-    def reCalculaMedP2(self, P, D):  #função que calcula a pressão em segunda ordem, porém já recebendo os valores de pressão e deslocamento em 1 ordem      
-
-        P2med = (np.array(P)**2)/2   
-        D2med = np.sum(np.array(D)**2, axis=1)/2
-            
-        medP2 =(P2med/(2*self.rho*(self.c0**2))) -(D2med*self.rho/2)
-
-        return medP2
-            
         
     class Emissor():
         
@@ -680,14 +624,14 @@ class SimuladorOndas:
         
         def ParForca(self, Pts0):
             Pts = np.array(Pts0)
-            PD =[]
+            Par =[]
             for Pt in Pts:
                 if (np.dot((Pt-self.Pem[0]), self.N)>0): #checa se o ponto  está na frente do emissor
                     Pi=0
                     Vi = 0
-                    GVxi = 0
-                    GVyi = 0
-                    GVzi = 0
+                    Vdxi = 0
+                    Vdyi = 0
+                    Vdzi = 0
                     for dr in  self.Pem:
                         rvec = Pt-dr
                         rlinha = np.linalg.norm(rvec)
@@ -695,32 +639,32 @@ class SimuladorOndas:
                         
                         C1 = (1/rlinha)*(math.e**(complex(0,-1)*self.k*rlinha))*self.dAEf
                         C2 = ((complex(0,1)/rlinha)-self.k)
-                        C3 = C1/rlinha
-                        C4 = rlinhadir*C3*(complex(0,-3)/(rlinha**2))+(3*self.k/rlinha)+(complex(0,1)*(self.k**2))
+                        C3 = C1/rlinha                      
+                        C4 = rlinhadir*C3*((complex(0,-3)/(rlinha**2))+(3*self.k/rlinha)+(complex(0,1)*(self.k**2)))
                         C5 = C3*C2
                         
                         dP = C1
                         dV = rlinhadir*C1*C2
-                        dGVxi = [C5,0,0] + C4*rvec[0]
-                        dGVyi = [0,C5,0] + C4*rvec[1]
-                        dGVzi = [0,0,C5] + C4*rvec[2]
-                        
+                        dVdxi = [C5,0,0] + C4*rvec[0]
+                        dVdyi = [0,C5,0] + C4*rvec[1]
+                        dVdzi = [0,0,C5] + C4*rvec[2]
+                                                
                         Pi = Pi+dP               
                         Vi = Vi+dV
-                        GVxi = GVxi + dGVxi
-                        GVyi = GVyi + dGVyi
-                        GVzi = GVzi + dGVzi
+                        Vdxi = Vdxi + dVdxi
+                        Vdyi = Vdyi + dVdyi
+                        Vdzi = Vdzi + dVdzi
                         
                     Pi = (complex(0,1)*self.rho*self.c0*self.U/self.Lamb)*Pi
                     Vi = (complex(0,-1)*self.U/(self.Lamb*self.k))*Vi
-                    GVxi = (complex(0,-1)*self.U/(self.Lamb*self.k))*GVxi
-                    GVyi = (complex(0,-1)*self.U/(self.Lamb*self.k))*GVyi
-                    GVzi = (complex(0,-1)*self.U/(self.Lamb*self.k))*GVzi
+                    Vdxi = (complex(0,-1)*self.U/(self.Lamb*self.k))*Vdxi
+                    Vdyi = (complex(0,-1)*self.U/(self.Lamb*self.k))*Vdyi
+                    Vdzi = (complex(0,-1)*self.U/(self.Lamb*self.k))*Vdzi
                     
-                    PD.append((Pi, *Vi, *GVxi, *GVyi, *GVzi))
+                    Par.append((Pi, *Vi, *Vdxi, *Vdyi, *Vdzi))
                 else:
-                    PD.append([complex(0,0)*13])
-            return PD
+                    Par.append([complex(0,0)*13])
+            return Par
             
     class Bola():
         
@@ -758,8 +702,6 @@ class SimuladorOndas:
 
         def superficie(self):
             return self.Pbo
-         
-
         
         def pressao(self,Pts0, Pinc):
             Pts = np.array(Pts0)
@@ -815,6 +757,50 @@ class SimuladorOndas:
                 Vi = Vi*(complex(0,-1)/(self.Lamb*self.k*self.rho*self.c0))
                 PD.append((Pi, *Vi)) 
             return PD
+        
+        def ParForca(self,Pts0, Pinc):
+            Pts = np.array(Pts0)
+            if len(self.Pbo)!=len(Pinc):
+                raise Exception("tamanho de Pem deve ser igual ao de Pinc")
+            Par =[]
+            for Pt in Pts:
+                Pi=0
+                Vi = 0
+                Vdxi = 0
+                Vdyi = 0
+                Vdzi = 0
+                for dr, da, Pin in  zip(self.Pbo, self.A, Pinc):
+                    rvec = Pt-dr
+                    rlinha = np.linalg.norm(rvec)
+                    rlinhadir = (Pt-dr)/rlinha
+                    
+                    C1 = Pin*(1/rlinha)*(math.e**(complex(0,-1)*self.k*rlinha))*da
+                    C2 = ((complex(0,1)/rlinha)-self.k)
+                    C3 = C1/rlinha                      
+                    C4 = rlinhadir*C3*((complex(0,-3)/(rlinha**2))+(3*self.k/rlinha)+(complex(0,1)*(self.k**2)))
+                    C5 = C3*C2
+                    
+                    dP = C1
+                    dV = rlinhadir*C1*C2
+                    dVdxi = [C5,0,0] + C4*rvec[0]
+                    dVdyi = [0,C5,0] + C4*rvec[1]
+                    dVdzi = [0,0,C5] + C4*rvec[2]
+                                            
+                    Pi = Pi+dP               
+                    Vi = Vi+dV
+                    Vdxi = Vdxi + dVdxi
+                    Vdyi = Vdyi + dVdyi
+                    Vdzi = Vdzi + dVdzi
+                    
+                Pi = Pi*complex(0,1)/self.Lamb
+                Vi = (complex(0,-1)/(self.Lamb*self.k*self.rho*self.c0))*Vi
+                Vdxi = (complex(0,-1)/(self.Lamb*self.k*self.rho*self.c0))*Vdxi
+                Vdyi = (complex(0,-1)/(self.Lamb*self.k*self.rho*self.c0))*Vdyi
+                Vdzi = (complex(0,-1)/(self.Lamb*self.k*self.rho*self.c0))*Vdzi
+                
+                Par.append((Pi, *Vi, *Vdxi, *Vdyi, *Vdzi))
+                
+            return Par
 
     class Refletor():
         
@@ -826,7 +812,6 @@ class SimuladorOndas:
             self.w = 2*math.pi*self.f
             self.k = self.w/self.c0
             self.Lamb = self.c0/self.f
-            
             
             
             if (math.floor(2*a/da)>1):
@@ -917,6 +902,52 @@ class SimuladorOndas:
                 Vi = Vi*(complex(0,-1)/(self.Lamb*self.k*self.rho*self.c0))
                 PD.append((Pi, *Vi))
             return PD
+        
+        def ParForca(self,Pts0, Pinc):
+            Pts = np.array(Pts0)
+            if len(self.Prf)!=len(Pinc):
+                raise Exception("tamanho de Pem deve ser igual ao de Pinc")
+            Par =[]
+            for Pt in Pts:
+         
+                Pi=0
+                Vi = 0
+                Vdxi = 0
+                Vdyi = 0
+                Vdzi = 0
+                
+                for dr, Pin in  zip(self.Prf, Pinc):
+                    rvec = Pt-dr
+                    rlinha = np.linalg.norm(rvec)
+                    rlinhadir = (Pt-dr)/rlinha
+                    
+                    C1 = Pin*(1/rlinha)*(math.e**(complex(0,-1)*self.k*rlinha))*self.dAEf
+                    C2 = ((complex(0,1)/rlinha)-self.k)
+                    C3 = C1/rlinha                      
+                    C4 = rlinhadir*C3*((complex(0,-3)/(rlinha**2))+(3*self.k/rlinha)+(complex(0,1)*(self.k**2)))
+                    C5 = C3*C2
+                    
+                    dP = C1
+                    dV = rlinhadir*C1*C2
+                    dVdxi = [C5,0,0] + C4*rvec[0]
+                    dVdyi = [0,C5,0] + C4*rvec[1]
+                    dVdzi = [0,0,C5] + C4*rvec[2]
+                                            
+                    Pi = Pi+dP               
+                    Vi = Vi+dV
+                    Vdxi = Vdxi + dVdxi
+                    Vdyi = Vdyi + dVdyi
+                    Vdzi = Vdzi + dVdzi
+                    
+                Pi = Pi*complex(0,1)/self.Lamb
+                Vi = (complex(0,-1)/(self.Lamb*self.k*self.rho*self.c0))*Vi
+                Vdxi = (complex(0,-1)/(self.Lamb*self.k*self.rho*self.c0))*Vdxi
+                Vdyi = (complex(0,-1)/(self.Lamb*self.k*self.rho*self.c0))*Vdyi
+                Vdzi = (complex(0,-1)/(self.Lamb*self.k*self.rho*self.c0))*Vdzi
+                
+                Par.append((Pi, *Vi, *Vdxi, *Vdyi, *Vdzi))
+                
+            return Par
         
         
 
