@@ -686,7 +686,7 @@ class SimuladorOndas:
                     phi = np.linspace(0,math.pi*2, math.ceil(n*math.sin(t)))
                     dA = (r**2)*(math.pi/n)*(math.pi*2/math.ceil(n*math.sin(t)))*math.sin(t)
                     for ph in phi:
-                        dP = [r*math.sin(t)*math.cos(ph)+self.P[0],r*math.sin(t)*math.sin(ph)+self.P[1], r*math.cos(t)+self.P[2]]
+                        dP = [r*math.sin(t)*math.cos(ph) + self.P[0],r*math.sin(t)*math.sin(ph) + self.P[1], r*math.cos(t)+self.P[2]]
                         self.Pbo.append(np.array(dP))
                         self.A.append(dA)
                 #correção da área:
@@ -696,21 +696,22 @@ class SimuladorOndas:
                 k = (4*math.pi*(r**2))/A
                 self.A = np.multiply(k, self.A)
             else:
-                self.Pbo = [self.P]
+                self.Pbo = self.P
                 self.A = [(4*math.pi*(r**2))]
-        
+            
 
-        def superficie(self):
-            return self.Pbo
+        def superficie(self, Dcentro = 0):
+            return np.add(self.Pbo,  Dcentro)
         
-        def pressao(self,Pts0, Pinc):
+        def pressao(self,Pts0, Pinc, Dcentro = 0):
+            PboC = np.add(self.Pbo,  Dcentro)
             Pts = np.array(Pts0)
-            if len(self.Pbo)!=len(Pinc):
+            if len(PboC)!=len(Pinc):
                 raise Exception("tamanho de Pem deve ser igual ao de Pinc")
             P=[]
             for Pt in Pts:
                 Pi=0
-                for dr, da, Pin in  zip(self.Pbo, self.A, Pinc):
+                for dr, da, Pin in  zip(PboC, self.A, Pinc):
                     rlinha = np.linalg.norm(Pt-dr)
                     dP = Pin*(1/rlinha)*(math.e**(complex(0,-1)*self.k*rlinha))*da
                     Pi = Pi+dP
@@ -718,14 +719,15 @@ class SimuladorOndas:
                 P.append(Pi)         
             return P
         
-        def deslocamento(self, Pts0,Pinc):
+        def deslocamento(self, Pts0,Pinc, Dcentro = 0):
+            PboC = np.add(self.Pbo,  Dcentro)
             Pts = np.array(Pts0)
-            if len(self.Pbo)!=len(Pinc):
+            if len(PboC)!=len(Pinc):
                 raise Exception("tamanho de Pem deve ser igual ao de Pinc")
             V=[]
             for Pt in Pts:
                 Vi=0
-                for dr, da, Pin in  zip(self.Pbo,self.A, Pinc):
+                for dr, da, Pin in  zip(PboC,self.A, Pinc):
                     rlinha = np.linalg.norm(Pt-dr)
                     rlinhadir = (Pt-dr)/rlinha
                     dV = ((complex(0,1)/rlinha)-self.k)*(1/rlinha)*(math.e**(complex(0,-1)*self.k*rlinha))*da                  
@@ -736,16 +738,17 @@ class SimuladorOndas:
                 
             return V
         
-        def PeD(self,Pts0, Pinc):
+        def PeD(self,Pts0, Pinc, Dcentro = 0):
+            PboC = np.add(self.Pbo,  Dcentro)
             Pts = np.array(Pts0)
-            if len(self.Pbo)!=len(Pinc):
+            if len(PboC)!=len(Pinc):
                 raise Exception("tamanho de Pem deve ser igual ao de Pinc")
             PD=[]
 
             for Pt in Pts:
                 Pi=0
                 Vi=0
-                for dr, da, Pin in  zip(self.Pbo, self.A, Pinc):
+                for dr, da, Pin in  zip(PboC, self.A, Pinc):
                     rlinha = np.linalg.norm(Pt-dr)
                     rlinhadir = (Pt-dr)/rlinha
                     dP = Pin*(1/rlinha)*(math.e**(complex(0,-1)*self.k*rlinha))*da
@@ -758,9 +761,10 @@ class SimuladorOndas:
                 PD.append((Pi, *Vi)) 
             return PD
         
-        def ParForca(self,Pts0, Pinc):
+        def ParForca(self,Pts0, Pinc,Dcentro = 0):
+            PboC = np.add(self.Pbo,  Dcentro)
             Pts = np.array(Pts0)
-            if len(self.Pbo)!=len(Pinc):
+            if len(PboC)!=len(Pinc):
                 raise Exception("tamanho de Pem deve ser igual ao de Pinc")
             Par =[]
             for Pt in Pts:
@@ -769,7 +773,7 @@ class SimuladorOndas:
                 Vdxi = 0
                 Vdyi = 0
                 Vdzi = 0
-                for dr, da, Pin in  zip(self.Pbo, self.A, Pinc):
+                for dr, da, Pin in  zip(PboC, self.A, Pinc):
                     rvec = Pt-dr
                     rlinha = np.linalg.norm(rvec)
                     rlinhadir = (Pt-dr)/rlinha
@@ -846,7 +850,7 @@ class SimuladorOndas:
                 self.dAEf = math.pi*(a**2)
             
         def superficie(self):
-            return self.Prf
+            return np.array(self.Prf)
             
         def pressao(self,Pts0, Pinc):
             Pts = np.array(Pts0)
