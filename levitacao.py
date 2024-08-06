@@ -304,6 +304,84 @@ class SimuladorOndas:
 
         return PDtotal
     
+    def calculaParForca(self, Pts, Nref):
+        refEff = np.concatenate((self.refletoresEmissores, self.refletores, self.bolas))#isso garante que a lista começa sempre pelos emissores fazendo papel de refletores; também junta as bolas como relfetores
+        
+        Partotal =[]
+        #T-->M
+       
+        Par = np.zeros((len(Pts),13))
+        for em in self.emissores:
+           Par = np.add(Par, em.ParForca(Pts))     
+        Partotal.append(Par)
+        
+        if(Nref != 0):
+            A = []
+            indA = np.zeros((len(refEff), 2), dtype=np.integer)
+            for i, ref in enumerate(refEff):
+                A.append(ref.superficie()) 
+                if i!=0:
+                    indA[i,0] = indA[i-1, 1]+1
+                    indA[i,1] = indA[i,0]+len(ref.superficie())-1
+                else:
+                    indA[i,1] = len(ref.superficie())-1
+            A = np.concatenate(A)
+                    
+            #T-->R
+
+            P=np.zeros(len(A))
+            for T, ind in zip(self.emissores, indA):   
+                a1,a2,a3 =np.split(A,[ind[0],1+ind[1]], axis=0)
+                p1 = T.pressao(a1)
+                p2 = np.zeros(len(a2))
+                p3 = T.pressao(a3)
+                P = P + np.concatenate((p1, p2, p3))
+            Pint = P #guarda o valor da pressão intermediária na superficie dos refletores
+            
+            #---------------------
+            
+            #R-->M
+    
+            PD = np.zeros((len(Pts),4))
+            for R, ind in zip(refEff, indA):
+               PD = PD + R.PeD(Pts, Pint[ind[0]:ind[1]+1])
+            PDtotal.append(PD)
+            
+            for N in range (0,Nref-1):
+                #R-->R
+                
+                P=np.zeros(len(A))
+                for R, ind in zip(refEff, indA):   
+                    a1,a2,a3 =np.split(A,[ind[0],1+ind[1]], axis=0)
+                    p1 = R.pressao(a1, Pint[ind[0]:1+ind[1]])
+                    p2 = np.zeros(len(a2))
+                    p3 = R.pressao(a3, Pint[ind[0]:1+ind[1]])
+                    P = P + np.concatenate((p1, p2, p3))
+                Pint = P #guarda o valor da pressão intermediária na superficie dos refletores
+                
+                #R-->M
+                
+                PD = np.zeros((len(Pts),4))
+                for R, ind in zip(refEff, indA):
+                   PD = PD + R.PeD(Pts, Pint[ind[0]:ind[1]+1])
+                PDtotal.append(PD)
+                
+        if self.nome != "":
+            ca = "x , y, z"
+
+            for i in range (0, Nref+1):
+                ca = ca +  ", Pnref " + str(i)+  ", Dxnref " + str(i) + ", Dynref " + str(i) + ", Dznref " + str(i)
+                
+            PDprint = np.transpose(Partotal, axes = (0,2,1))
+            PDprint = np.concatenate(PDprint)
+            dados = np.array([*np.transpose(Pts), *PDprint])
+            dados = np.transpose(dados)
+            
+            np.savetxt(self.nome + '_pressao.csv',dados, header=ca, delimiter=',')
+            print("dados salvos em .csv")
+
+        return Partotal
+    
     def calculaPar2Bola(self, PtsMed, PtsBo, Nref, Raio):
         refEff = np.concatenate((self.refletoresEmissores, self.refletores))#isso garante que a lista começa sempre pelos emissores fazendo papel de refletores
             
@@ -452,6 +530,39 @@ class SimuladorOndas:
 
         return Gorkov
     
+    def calculaForca(self, Pts, Nref):
+        Parref = self.calculaParForca(Pts, Nref)
+        k = 2*math.pi*self.f/self.c0
+        
+        Par = np.sum(Parref, axis=0)
+        P = Par[:,[0]]
+        D = Par[:, 1:4]
+        GDx = Par[:, 4:7]
+        GDy = Par[:, 7:10]
+        GDz = Par[:, 10:]
+        
+        teste=  np.multiply(np.conjugate(P), D)
+        p1 = np.imag(np.multiply(np.conjugate(P), D))
+        p2 = np.real(np.conjugate(D[:,[0]])*GDx + np.conjugate(D[:,[1]])*GDy + np.conjugate(D[:,[2]])*GDz)
+
+        t1 = (p1*k/(2*self.c0))
+        t2 = (p2*self.rho*3/4)
+
+        
+        Forca = -1*((p1*k/(2*self.c0)) -(p2*self.rho*3/4))
+        
+        if self.nome != "":
+            ca = "x, y, z, Fx, Fy, Fz"
+           
+            dados = np.array([*np.transpose(Pts), *np.transpose(Forca)])
+            dados = np.transpose(dados)
+            
+            np.savetxt(self.nome + '_Forca.csv',dados, header=ca, delimiter=',')
+            print("dados salvos em .csv")
+
+        return Forca
+    
+    
     def reCalculaMedP2(self, P, D):  #função que calcula a pressão em segunda ordem, porém já recebendo os valores de pressão e deslocamento em 1 ordem      
 
         P2med = (np.array(P)**2)/2   
@@ -565,6 +676,50 @@ class SimuladorOndas:
                     PD.append((Pi, *Vi))
                 else:
                     PD.append([complex(0,0)*4])
+            return PD
+        
+        def ParForca(self, Pts0):
+            Pts = np.array(Pts0)
+            PD =[]
+            for Pt in Pts:
+                if (np.dot((Pt-self.Pem[0]), self.N)>0): #checa se o ponto  está na frente do emissor
+                    Pi=0
+                    Vi = 0
+                    GVxi = 0
+                    GVyi = 0
+                    GVzi = 0
+                    for dr in  self.Pem:
+                        rvec = Pt-dr
+                        rlinha = np.linalg.norm(rvec)
+                        rlinhadir = (Pt-dr)/rlinha
+                        
+                        C1 = (1/rlinha)*(math.e**(complex(0,-1)*self.k*rlinha))*self.dAEf
+                        C2 = ((complex(0,1)/rlinha)-self.k)
+                        C3 = C1/rlinha
+                        C4 = rlinhadir*C3*(complex(0,-3)/(rlinha**2))+(3*self.k/rlinha)+(complex(0,1)*(self.k**2))
+                        C5 = C3*C2
+                        
+                        dP = C1
+                        dV = rlinhadir*C1*C2
+                        dGVxi = [C5,0,0] + C4*rvec[0]
+                        dGVyi = [0,C5,0] + C4*rvec[1]
+                        dGVzi = [0,0,C5] + C4*rvec[2]
+                        
+                        Pi = Pi+dP               
+                        Vi = Vi+dV
+                        GVxi = GVxi + dGVxi
+                        GVyi = GVyi + dGVyi
+                        GVzi = GVzi + dGVzi
+                        
+                    Pi = (complex(0,1)*self.rho*self.c0*self.U/self.Lamb)*Pi
+                    Vi = (complex(0,-1)*self.U/(self.Lamb*self.k))*Vi
+                    GVxi = (complex(0,-1)*self.U/(self.Lamb*self.k))*GVxi
+                    GVyi = (complex(0,-1)*self.U/(self.Lamb*self.k))*GVyi
+                    GVzi = (complex(0,-1)*self.U/(self.Lamb*self.k))*GVzi
+                    
+                    PD.append((Pi, *Vi, *GVxi, *GVyi, *GVzi))
+                else:
+                    PD.append([complex(0,0)*13])
             return PD
             
     class Bola():
