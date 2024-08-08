@@ -226,7 +226,7 @@ class SimuladorOndas:
 
         return Ptotal, Dtotal
     
-    def calculaPeD(self, Pts, Nref, forca = False, Bolas = True):
+    def calculaPeD(self, Pts, Nref, forca = False, Bolas = True, Pintermediaria = False):
         if Bolas:
             refEff = np.concatenate((self.refletoresEmissores, self.refletores, self.bolas))#isso garante que a lista começa sempre pelos emissores fazendo papel de refletores; também junta as bolas como relfetores
         else:
@@ -327,10 +327,10 @@ class SimuladorOndas:
             np.savetxt(self.nome + '_pressao.csv',dados, header=ca, delimiter=',')
             print("dados salvos em .csv")
         
-        if Bolas:
-            return PDtotal
-        else:
+        if Pintermediaria:
             return PDtotal, Pint
+        else:
+            return PDtotal
     
     def calculaPar2Bola(self, PtsMed, PtsBo, Nref, CalGorcov=False):
         PtsBo = np.transpose(np.array([PtsBo]), (1,0,2))
@@ -340,7 +340,7 @@ class SimuladorOndas:
         Ab = A0 + PtsBo
         
         #calculo dos valores base para os pontos de medida e bolas
-        Parl ,Pint = self.calculaPeD(np.concatenate([PtsMed, np.reshape(Ab, (-1,3))]), Nref-1, forca = True, Bolas = False)
+        Parl ,Pint = self.calculaPeD(np.concatenate([PtsMed, np.reshape(Ab, (-1,3))]), Nref-1, forca = True, Bolas = False, Pintermediaria = True)
         
         Par = np.sum(Parl, axis=0)
         PM = Par[:int(np.size(np.array(PtsMed))/3), :]
@@ -404,7 +404,8 @@ class SimuladorOndas:
         GDz = ParFinal[:,:, 10:]
         
         p1 = np.imag(np.multiply(np.conjugate(P), D))
-        p2 = np.real((np.conjugate(D[:,[0]])*GDx) + (np.conjugate(D[:,[1]])*GDy) + (np.conjugate(D[:,[2]])*GDz))
+        p2 = np.real((np.conjugate(D[:,:,[0]])*GDx) + (np.conjugate(D[:,:,[1]])*GDy) + (np.conjugate(D[:,:,[2]])*GDz))
+        
         
         Forca = -1*((p1*k/(2*self.c0)) -(p2*self.rho*3/4))
 
@@ -463,8 +464,8 @@ class SimuladorOndas:
 
         return Gorkov
     
-    def calculaForca(self, Pts, Nref, CalGorcov = False):
-        Parref = self.calculaPeD(Pts, Nref,forca = True)
+    def calculaForca(self, Pts, Nref, CalGorcov = False, Bolas = True):
+        Parref = self.calculaPeD(Pts, Nref,forca = True, Bolas=Bolas)
         k = 2*math.pi*self.f/self.c0
         
         Par = np.sum(Parref, axis=0)
@@ -684,7 +685,7 @@ class SimuladorOndas:
                 k = (4*math.pi*(r**2))/A
                 self.A = np.multiply(k, self.A)
             else:
-                self.Pbo = self.P
+                self.Pbo = [self.P]
                 self.A = [(4*math.pi*(r**2))]
             
 

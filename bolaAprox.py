@@ -2,9 +2,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import levitacao
 
+
 SO = levitacao.SimuladorOndas(uL='m', uM='kg', uT='s') 
-z0 = 10e-3
-zm = 1e-3*np.linspace(2,8, 100)
+z0 = 12e-3
+zm = 1e-3*np.linspace(6.5,8.5, 100)
 coord=[]
 for zi in zm:
     coord.append(np.array([0,0,zi]))
@@ -16,12 +17,15 @@ for bi in bm:
 
 
 SO.criaEmissor(7e-3, 1e-3, [0,0,1], [0,0,-1e-3], 1)
-#SO.criaRefletor(7e-3, 1e-3, [0,0,-1], [0,0,21e-3])
-SO.criaBola(.5e-3, 10, [0,0,z0])
-SO.criaEmissor(7e-3, 1e-3, [0,0,-1], [0,0,21e-3], 1, fase = np.pi)
+SO.criaEmissor(7e-3, 1e-3, [0,0,-1], [0,0,21e-3], 1, fase = 0)
 
-F, G = SO.calculaPar2Bola(coord, coordB, 4, CalGorcov=True)
-F0, G0 = SO.calculaForca(coord, 4,CalGorcov=True)
+
+#SO.criaRefletor(7e-3, 1e-3, [0,0,-1], [0,0,21e-3])
+SO.criaBola(.5e-3, 1, [0,0,z0])
+
+F0, G0 = SO.calculaForca(coord, 2,CalGorcov=True, Bolas=False)
+F, G = SO.calculaPar2Bola(coord, coordB, 2, CalGorcov=True)
+
 
 plt.figure(dpi =300)
 plt.subplot(2,1,1)
@@ -40,5 +44,6 @@ for i, Gi in enumerate(G):
 plt.plot(1e3*zm, G0, marker='', label = "sem bola", linestyle ='-')
 plt.ylabel( 'Potencial (J/m^3)')
 plt.grid()
+
 
 plt.show()
