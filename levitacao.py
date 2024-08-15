@@ -127,104 +127,6 @@ class SimuladorOndas:
         
         self.bolas.append(self.Bola(self, r, n, P0))
         self.nomeBolas.append(nome)
-        
-    def calculaPar(self, Pts, Nref, Pressao = True, Deslocamento = True):
-        refEff = np.concatenate((self.refletoresEmissores, self.refletores, self.bolas))#isso garante que a lista começa sempre pelos emissores fazendo papel de refletores; também junta as bolas como relfetores
-        Ptotal = [] 
-        Dtotal = []
-        #T-->M
-        if Pressao:
-            P = np.zeros(len(Pts))
-            for em in self.emissores:
-               P = np.add(P, em.pressao(Pts))     
-            Ptotal.append(P)
-        if Deslocamento:
-            D = np.zeros((len(Pts),3))
-            for em in self.emissores:
-               D = np.add(D, em.deslocamento(Pts))     
-            Dtotal.append(D)
-        
-        if(Nref != 0):
-            A = []
-            indA = np.zeros((len(refEff), 2), dtype=np.integer)
-            for i, ref in enumerate(refEff):
-                A.append(ref.superficie()) 
-                if i!=0:
-                    indA[i,0] = indA[i-1, 1]+1
-                    indA[i,1] = indA[i,0]+len(ref.superficie())-1
-                else:
-                    indA[i,1] = len(ref.superficie())-1
-            A = np.concatenate(A) 
-            
-            #T-->R
-            P=np.zeros(len(A))
-            for T, ind in zip(self.emissores, indA):   
-                a1,a2,a3 =np.split(A,[ind[0],1+ind[1]], axis=0)
-                p1 = T.pressao(a1)
-                p2 = np.zeros(len(a2))
-                p3 = T.pressao(a3)
-                P = P + np.concatenate((p1, p2, p3))
-            Pint = P #guarda o valor da pressão intermediária na superficie dos refletores
-            
-            #---------------------
-            
-            #R-->M                
-            if Pressao:
-                P = np.zeros(len(Pts))
-                for R, ind in zip(refEff, indA):
-                   P = P + R.pressao(Pts,Pint[ind[0]:ind[1]+1])     
-                Ptotal.append(P)
-            
-            if Deslocamento:
-                D = np.zeros((len(Pts),3))
-                for R, ind in zip(refEff, indA):
-                   D = D + R.deslocamento(Pts,Pint[ind[0]:ind[1]+1])  
-                Dtotal.append(D)
-                
-                  
-            for N in range (0,Nref-1):
-                #R-->R
-                
-                P=np.zeros(len(A))
-                for R, ind in zip(refEff, indA):   
-                    a1,a2,a3 =np.split(A,[ind[0],1+ind[1]], axis=0)
-                    p1 = R.pressao(a1, Pint[ind[0]:1+ind[1]])
-                    p2 = np.zeros(len(a2))
-                    p3 = R.pressao(a3, Pint[ind[0]:1+ind[1]])
-                    P = P + np.concatenate((p1, p2, p3))
-                Pint = P #guarda o valor da pressão intermediária na superficie dos refletores
-               
-                #R-->M                
-                if Pressao:
-                    P = np.zeros(len(Pts))
-                    for R, ind in zip(refEff, indA):
-                       P = P + R.pressao(Pts,Pint[ind[0]:ind[1]+1])     
-                    Ptotal.append(P)
-                
-                if Deslocamento:
-                    D = np.zeros((len(Pts),3))
-                    for R, ind in zip(refEff, indA):
-                       D = D + R.deslocamento(Pts,Pint[ind[0]:ind[1]+1])  
-                    Dtotal.append(D)
-                
-        if self.nome != "":
-            ca = "x , y, z"
-            if Pressao:
-                for i in range (0, len(Ptotal)):
-                    ca = ca +  ", Pnref " + str(i)
-            if Deslocamento:
-                for i in range (0, len(Dtotal)):
-                    ca = ca +  ", Dxnref " + str(i) + ", Dynref " + str(i) + ", Dznref " + str(i)
-                
-            Dprint = np.transpose(Dtotal, axes = (0,2,1))
-            Dprint = np.concatenate(Dprint)
-            dados = np.array([*np.transpose(Pts), *Ptotal, *Dprint])
-            dados = np.transpose(dados)
-            
-            np.savetxt(self.nome + '_pressao.csv',dados, header=ca, delimiter=',')
-            print("dados salvos em .csv")
-
-        return Ptotal, Dtotal
     
     def calculaPeD(self, Pts, Nref, forca = False, Bolas = True, Pintermediaria = False):
         if Bolas:
@@ -565,27 +467,6 @@ class SimuladorOndas:
 
             return P[:,0]
         
-        def deslocamento(self, Pts0):
-            Pts = np.array(Pts0)
-            V=[]
-            for Pt in Pts:
-                dist = np.dot((Pt-self.Pem[0]), self.N)
-                if (dist>0): #checa se o ponto  a ser calculado a velocidade está na frente do emissor
-                    Vi=0
-                    for dr in  self.Pem:
-                        rlinha = np.linalg.norm(Pt-dr)
-                        rlinhadir = (Pt-dr)/rlinha
-                        dV = ((complex(0,1)/rlinha)-self.k)*(1/rlinha)*(math.e**(complex(0,-1)*self.k*rlinha))*self.dAEf                    
-                        dV = dV*rlinhadir
-                        Vi = Vi+dV
-                    Vi = (complex(0,-1)*self.U/(self.Lamb*self.k))*Vi
-                    V.append(Vi) 
-                elif dist ==0:
-                    V.append(self.U*self.N)
-                else:
-                    V.append([0,0,0])
-            return V
-        
         def PeD(self, Pts0):
             Pts = np.array(Pts0)
             PD =[]
@@ -698,24 +579,6 @@ class SimuladorOndas:
                 P.append(Pi)         
             return P
         
-        def deslocamento(self, Pts0,Pinc, Dcentro = 0):
-            PboC = np.add(self.Pbo,  Dcentro)
-            Pts = np.array(Pts0)
-            if len(PboC)!=len(Pinc):
-                raise Exception("tamanho de Pem deve ser igual ao de Pinc")
-            V=[]
-            for Pt in Pts:
-                Vi=0
-                for dr, da, Pin in  zip(PboC,self.A, Pinc):
-                    rlinha = np.linalg.norm(Pt-dr)
-                    rlinhadir = (Pt-dr)/rlinha
-                    dV = ((complex(0,1)/rlinha)-self.k)*(1/rlinha)*(math.e**(complex(0,-1)*self.k*rlinha))*da                  
-                    dV = Pin*dV*rlinhadir
-                    Vi = Vi+dV
-                Vi = Vi*(complex(0,-1)/(self.Lamb*self.k*self.rho*self.c0))
-                V.append(Vi) 
-                
-            return V
         
         def PeD(self,Pts0, Pinc, Dcentro = 0):
             PboC = np.add(self.Pbo,  Dcentro)
@@ -845,24 +708,6 @@ class SimuladorOndas:
                 Pi = Pi*complex(0,1)/self.Lamb
                 P.append(Pi)         
             return P
-        
-        def deslocamento(self, Pts0,Pinc):
-            Pts = np.array(Pts0)
-            if len(self.Prf)!=len(Pinc):
-                raise Exception("tamanho de Pem deve ser igual ao de Pinc")
-            V=[]
-            for Pt in Pts:
-                Vi=0
-                for dr, Pin in  zip(self.Prf, Pinc):
-                    rlinha = np.linalg.norm(Pt-dr)
-                    rlinhadir = (Pt-dr)/rlinha
-                    dV = ((complex(0,1)/rlinha)-self.k)*(1/rlinha)*(math.e**(complex(0,-1)*self.k*rlinha))*self.dAEf                    
-                    dV = Pin*dV*rlinhadir
-                    Vi = Vi+dV
-                Vi = Vi*(complex(0,-1)/(self.Lamb*self.k*self.rho*self.c0))
-                V.append(Vi) 
-                
-            return V
         
         def PeD(self,Pts0, Pinc):
             Pts = np.array(Pts0)
