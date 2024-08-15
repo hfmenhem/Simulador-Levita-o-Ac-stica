@@ -28,6 +28,7 @@ F, G = SO.calculaPar2Bola(coord, coordB, 2, CalGorcov=True)
 
 
 plt.figure(dpi =300)
+plt.subplots_adjust(hspace=0.4)
 plt.subplot(2,1,1)
 for i, Fi in enumerate(F[:,:,2]):
     plt.plot(1e3*zm, 1e-3*Fi, marker='', label = str(np.round((bm[i]+z0)*1e3, decimals=1)) +"mm", linestyle ='-')

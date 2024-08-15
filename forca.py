@@ -11,13 +11,14 @@ for zi in zm:
 
 
 SO.criaEmissor(7e-3, 1e-3, [0,0,1], [0,0,-1e-3], 1)
-SO.criaEmissor(7e-3, 1e-3, [0,0,-1], [0,0,21e-3], 1, fase = np.pi)
+SO.criaEmissor(7e-3, 1e-3, [0,0,-1], [0,0,21e-3], 1, fase = 0)
 
 
 F, G = SO.calculaForca(coord, 2, CalGorcov=True)
 
 fig = plt.figure(dpi=300)
 
+plt.subplots_adjust(hspace=0.4)
 plt.subplot(2,1,1)
 plt.plot(1e3*zm, F[:,2], marker='', linestyle ='-', label = "Força")
 plt.ylabel( 'Força (N/m^3) (Pa)')
