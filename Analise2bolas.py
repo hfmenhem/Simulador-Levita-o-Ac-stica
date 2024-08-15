@@ -15,7 +15,7 @@ def seno(x, A, B, fase, C):
 
 SO = levitacao.SimuladorOndas(uL='m', uM='kg', uT='s') 
 
-z0 = 12e-3
+z0 = 17e-3
 
 zm = 1e-3*np.linspace(4,8.5, 100)
 coord=[]
@@ -87,11 +87,17 @@ plt.show()
 
 plt.figure(dpi=300)
 plt.subplot(2,1,1)
-plt.plot(1e3*bm, 1e3*equilibrio, marker='.', linestyle ='-')
-plt.ylabel( 'Posição de equilibrio (mm)')
+
+plt.title("Com 1 bola variando")
+plt.plot(1e3*(bm+z0), 1e3*equilibrio, marker='.', linestyle ='-')
+plt.ylabel( 'Posição de equilibrio \n (mm)')
+plt.grid()
+
+plt.subplots_adjust(hspace=0.4)
 
 plt.subplot(2,1,2)
-plt.plot(1e3*bm, grad, marker='.', linestyle ='-')
+plt.plot(1e3*(bm+z0), 1e-6*grad, marker='.', linestyle ='-')
+
 plt.xlabel( 'Posição da Bola 2 (mm)' )
 plt.ylabel( 'Gradiente Força (N/m^3/m)')
 plt.show()
