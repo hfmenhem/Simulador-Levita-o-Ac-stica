@@ -31,12 +31,10 @@ for zi in zm0:
 
 SO.criaEmissor(7e-3, 1e-3, [0,0,1], [0,0,-1e-3], 1)
 SO.criaEmissor(7e-3, 1e-3, [0,0,-1], [0,0,21e-3], 1, fase = 0)
-
-
 #SO.criaRefletor(7e-3, 1e-3, [0,0,-1], [0,0,21e-3])
-SO.criaBola(.5e-3, 1, [0,0,z0])
+SO.criaBola(.5e-3, 10, [0,0,z0])
 
-#--medir tempo--
+#medir tempo
 start = timeit.default_timer()
 
 F0, G0 = SO.calculaForca(coord0, 6,CalGorcov=True, Bolas=False)
@@ -46,8 +44,7 @@ F, G = SO.calculaPar2Bola(coord, coordB, 6, CalGorcov=True)
 stop = timeit.default_timer()
 execution_time = stop - start
 
-print("Programa demorou "+str(execution_time)+" s para calcular") # It returns time in seconds
-
+print("Programa demorou "+str(execution_time)+" s para calcular")
 
 
 parametros =[]
@@ -82,14 +79,20 @@ plt.title("Sem bola")
 plt.show()
 
 plt.figure(dpi=300)
+
 plt.subplot(2,1,1)
+plt.title("Com 1 bola variando")
 plt.plot(1e3*bm, 1e3*equilibrio, marker='.', linestyle ='-')
-plt.ylabel( 'Posição de equilibrio (mm)')
+plt.ylabel( 'Posição de equilibrio \n (mm)')
+plt.grid()
+
+plt.subplots_adjust(hspace=0.4)
 
 plt.subplot(2,1,2)
-plt.plot(1e3*bm, grad, marker='.', linestyle ='-')
+plt.plot(1e3*bm, 1e-6*grad, marker='.', linestyle ='-')
 plt.xlabel( 'Posição da Bola 2 (mm)' )
-plt.ylabel( 'Gradiente Força (N/m^3/m)')
+plt.ylabel( 'Gradiente Força \n (kN/m^3/nm)')
+plt.grid()
 plt.show()
 
 
