@@ -552,21 +552,18 @@ class SimuladorOndas:
                 self.Pem=[P]
                 self.dAEf = math.pi*(a**2)
             
-        def pressao(self,Pts0):
-            Pts = np.array(Pts0)
-            P=[]
-            for Pt in Pts:
-                if (np.dot((Pt-self.Pem[0]), self.N)>0): #checa se o ponto  está na frente do emissor
-                    Pi=0
-                    for dr in  self.Pem:
-                        rlinha = np.linalg.norm(Pt-dr)
-                        dP = (1/rlinha)*(math.e**(complex(0,-1)*self.k*rlinha))*self.dAEf
-                        Pi = Pi+dP
-                    Pi = (complex(0,1)*self.rho*self.c0*self.U/self.Lamb)*Pi
-                    P.append(Pi)         
-                else:
-                    P.append(complex(0,0))
-            return P
+
+        def pressao(self,Pts0):            
+            rM = np.array([Pts0])
+            rE = np.transpose(np.array([self.Pem]), [1,0,2])
+            rvec = rM-rE
+            rlinha = np.transpose([np.sqrt(np.sum(rvec**2, axis=2))], [1,2,0])
+            
+            dP = (1/rlinha)*(math.e**(complex(0,-1)*self.k*rlinha))*self.dAEf
+            
+            P = (complex(0,1)*self.rho*self.c0*self.U/self.Lamb)*np.sum(dP, axis = 0)
+
+            return P[:,0]
         
         def deslocamento(self, Pts0):
             Pts = np.array(Pts0)
@@ -612,49 +609,39 @@ class SimuladorOndas:
             return PD
         
         def ParForca(self, Pts0):
-            Pts = np.array(Pts0)
-            Par =[]
-            for Pt in Pts:
-                if (np.dot((Pt-self.Pem[0]), self.N)>0): #checa se o ponto  está na frente do emissor
-                    Pi=0
-                    Vi = 0
-                    Vdxi = 0
-                    Vdyi = 0
-                    Vdzi = 0
-                    for dr in  self.Pem:
-                        rvec = Pt-dr
-                        rlinha = np.linalg.norm(rvec)
-                        rlinhadir = (Pt-dr)/rlinha
-                        
-                        C1 = (1/rlinha)*(math.e**(complex(0,-1)*self.k*rlinha))*self.dAEf
-                        C2 = ((complex(0,1)/rlinha)-self.k)
-                        C3 = C1/rlinha                      
-                        C4 = rlinhadir*C3*((complex(0,-3)/(rlinha**2))+(3*self.k/rlinha)+(complex(0,1)*(self.k**2)))
-                        C5 = C3*C2
-                        
-                        dP = C1
-                        dV = rlinhadir*C1*C2
-                        dVdxi = [C5,0,0] + C4*rvec[0]
-                        dVdyi = [0,C5,0] + C4*rvec[1]
-                        dVdzi = [0,0,C5] + C4*rvec[2]
-                                                
-                        Pi = Pi+dP               
-                        Vi = Vi+dV
-                        Vdxi = Vdxi + dVdxi
-                        Vdyi = Vdyi + dVdyi
-                        Vdzi = Vdzi + dVdzi
-                        
-                    Pi = (complex(0,1)*self.rho*self.c0*self.U/self.Lamb)*Pi
-                    Vi = (complex(0,-1)*self.U/(self.Lamb*self.k))*Vi
-                    Vdxi = (complex(0,-1)*self.U/(self.Lamb*self.k))*Vdxi
-                    Vdyi = (complex(0,-1)*self.U/(self.Lamb*self.k))*Vdyi
-                    Vdzi = (complex(0,-1)*self.U/(self.Lamb*self.k))*Vdzi
-                    
-                    Par.append((Pi, *Vi, *Vdxi, *Vdyi, *Vdzi))
-                else:
-                    Par.append([complex(0,0)*13])
-            return Par
             
+            rM = np.array([Pts0])
+            rE = np.transpose(np.array([self.Pem]), [1,0,2])
+            rvec = rM-rE
+            rlinha = np.transpose([np.sqrt(np.sum(rvec**2, axis=2))], [1,2,0])
+            rlinhadir = rvec/rlinha
+            
+            C1 = (1/rlinha)*(math.e**(complex(0,-1)*self.k*rlinha))*self.dAEf
+            C2 = ((complex(0,1)/rlinha)-self.k)
+            C3 = C1/rlinha                      
+            C4 = rlinhadir*C3*((complex(0,-3)/(rlinha**2))+(3*self.k/rlinha)+(complex(0,1)*(self.k**2)))
+            C5 = C3*C2
+
+            dP = C1
+            dV = rlinhadir*C1*C2
+
+            
+            dVdx = C4*rvec[:,:,[0]]
+            dVdx[:,:,0] = dVdx[:,:,0] + C5[:,:,0]
+            dVdy = C4*rvec[:,:,[1]]
+            dVdy[:,:,1] = dVdy[:,:,1] + C5[:,:,0]
+            dVdz = C4*rvec[:,:,[2]]
+            dVdz[:,:,2] = dVdz[:,:,2] + C5[:,:,0]
+            
+            P = (complex(0,1)*self.rho*self.c0*self.U/self.Lamb)*np.sum(dP, axis = 0)
+            V = (complex(0,-1)*self.U/(self.Lamb*self.k))*np.sum(dV, axis=0)
+            Vdx = (complex(0,-1)*self.U/(self.Lamb*self.k))*np.sum(dVdx, axis = 0)
+            Vdy = (complex(0,-1)*self.U/(self.Lamb*self.k))*np.sum(dVdy, axis = 0)
+            Vdz = (complex(0,-1)*self.U/(self.Lamb*self.k))*np.sum(dVdz, axis = 0)
+                        
+            Par = np.concatenate((P, V, Vdx, Vdy, Vdz), axis=1)
+            
+            return Par
     class Bola():
         
         def __init__(self, outer, r, n, P0):
