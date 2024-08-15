@@ -12,9 +12,9 @@ for zi in zm:
 
 SO.criaEmissor(7e-3, 1e-3, [0,0,1], [0,0,-1e-3], 1)
 SO.criaEmissor(7e-3, 1e-3, [0,0,-1], [0,0,21e-3], 1, fase = 0)
+SO.criaBola(0.5e-3, 10, [0,0,12e-3])
 
-
-F, G = SO.calculaForca(coord, 2, CalGorcov=True)
+F, G = SO.calculaForca(coord, 5, CalGorcov=True)
 
 fig = plt.figure(dpi=300)
 

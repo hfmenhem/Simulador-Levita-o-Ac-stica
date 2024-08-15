@@ -9,10 +9,6 @@ import timeit
 def seno(x, A, B, fase, C):
     return A*np.sin(B*x+fase)+C
 
-
-
-
-
 SO = levitacao.SimuladorOndas(uL='m', uM='kg', uT='s') 
 
 z0 = 12e-3
