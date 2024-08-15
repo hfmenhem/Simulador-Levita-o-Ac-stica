@@ -83,7 +83,7 @@ plt.figure(dpi=300)
 plt.subplot(2,1,1)
 
 plt.title("Com 1 bola variando")
-plt.plot(1e3*bm, 1e3*equilibrio, marker='.', linestyle ='-')
+plt.plot(1e3*(bm+z0), 1e3*equilibrio, marker='.', linestyle ='-')
 
 plt.ylabel( 'Posição de equilibrio \n (mm)')
 plt.grid()
