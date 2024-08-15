@@ -127,104 +127,6 @@ class SimuladorOndas:
         
         self.bolas.append(self.Bola(self, r, n, P0))
         self.nomeBolas.append(nome)
-        
-    def calculaPar(self, Pts, Nref, Pressao = True, Deslocamento = True):
-        refEff = np.concatenate((self.refletoresEmissores, self.refletores, self.bolas))#isso garante que a lista começa sempre pelos emissores fazendo papel de refletores; também junta as bolas como relfetores
-        Ptotal = [] 
-        Dtotal = []
-        #T-->M
-        if Pressao:
-            P = np.zeros(len(Pts))
-            for em in self.emissores:
-               P = np.add(P, em.pressao(Pts))     
-            Ptotal.append(P)
-        if Deslocamento:
-            D = np.zeros((len(Pts),3))
-            for em in self.emissores:
-               D = np.add(D, em.deslocamento(Pts))     
-            Dtotal.append(D)
-        
-        if(Nref != 0):
-            A = []
-            indA = np.zeros((len(refEff), 2), dtype=np.integer)
-            for i, ref in enumerate(refEff):
-                A.append(ref.superficie()) 
-                if i!=0:
-                    indA[i,0] = indA[i-1, 1]+1
-                    indA[i,1] = indA[i,0]+len(ref.superficie())-1
-                else:
-                    indA[i,1] = len(ref.superficie())-1
-            A = np.concatenate(A) 
-            
-            #T-->R
-            P=np.zeros(len(A))
-            for T, ind in zip(self.emissores, indA):   
-                a1,a2,a3 =np.split(A,[ind[0],1+ind[1]], axis=0)
-                p1 = T.pressao(a1)
-                p2 = np.zeros(len(a2))
-                p3 = T.pressao(a3)
-                P = P + np.concatenate((p1, p2, p3))
-            Pint = P #guarda o valor da pressão intermediária na superficie dos refletores
-            
-            #---------------------
-            
-            #R-->M                
-            if Pressao:
-                P = np.zeros(len(Pts))
-                for R, ind in zip(refEff, indA):
-                   P = P + R.pressao(Pts,Pint[ind[0]:ind[1]+1])     
-                Ptotal.append(P)
-            
-            if Deslocamento:
-                D = np.zeros((len(Pts),3))
-                for R, ind in zip(refEff, indA):
-                   D = D + R.deslocamento(Pts,Pint[ind[0]:ind[1]+1])  
-                Dtotal.append(D)
-                
-                  
-            for N in range (0,Nref-1):
-                #R-->R
-                
-                P=np.zeros(len(A))
-                for R, ind in zip(refEff, indA):   
-                    a1,a2,a3 =np.split(A,[ind[0],1+ind[1]], axis=0)
-                    p1 = R.pressao(a1, Pint[ind[0]:1+ind[1]])
-                    p2 = np.zeros(len(a2))
-                    p3 = R.pressao(a3, Pint[ind[0]:1+ind[1]])
-                    P = P + np.concatenate((p1, p2, p3))
-                Pint = P #guarda o valor da pressão intermediária na superficie dos refletores
-               
-                #R-->M                
-                if Pressao:
-                    P = np.zeros(len(Pts))
-                    for R, ind in zip(refEff, indA):
-                       P = P + R.pressao(Pts,Pint[ind[0]:ind[1]+1])     
-                    Ptotal.append(P)
-                
-                if Deslocamento:
-                    D = np.zeros((len(Pts),3))
-                    for R, ind in zip(refEff, indA):
-                       D = D + R.deslocamento(Pts,Pint[ind[0]:ind[1]+1])  
-                    Dtotal.append(D)
-                
-        if self.nome != "":
-            ca = "x , y, z"
-            if Pressao:
-                for i in range (0, len(Ptotal)):
-                    ca = ca +  ", Pnref " + str(i)
-            if Deslocamento:
-                for i in range (0, len(Dtotal)):
-                    ca = ca +  ", Dxnref " + str(i) + ", Dynref " + str(i) + ", Dznref " + str(i)
-                
-            Dprint = np.transpose(Dtotal, axes = (0,2,1))
-            Dprint = np.concatenate(Dprint)
-            dados = np.array([*np.transpose(Pts), *Ptotal, *Dprint])
-            dados = np.transpose(dados)
-            
-            np.savetxt(self.nome + '_pressao.csv',dados, header=ca, delimiter=',')
-            print("dados salvos em .csv")
-
-        return Ptotal, Dtotal
     
     def calculaPeD(self, Pts, Nref, forca = False, Bolas = True, Pintermediaria = False):
         if Bolas:
@@ -551,110 +453,75 @@ class SimuladorOndas:
             else:
                 self.Pem=[P]
                 self.dAEf = math.pi*(a**2)
+
+        def pressao(self,Pts0):            
+            rM = np.array([Pts0])
+            rE = np.transpose(np.array([self.Pem]), [1,0,2])
+            rvec = rM-rE
+            rlinha = np.transpose([np.sqrt(np.sum(rvec**2, axis=2))], [1,2,0])
             
-        def pressao(self,Pts0):
-            Pts = np.array(Pts0)
-            P=[]
-            for Pt in Pts:
-                if (np.dot((Pt-self.Pem[0]), self.N)>0): #checa se o ponto  está na frente do emissor
-                    Pi=0
-                    for dr in  self.Pem:
-                        rlinha = np.linalg.norm(Pt-dr)
-                        dP = (1/rlinha)*(math.e**(complex(0,-1)*self.k*rlinha))*self.dAEf
-                        Pi = Pi+dP
-                    Pi = (complex(0,1)*self.rho*self.c0*self.U/self.Lamb)*Pi
-                    P.append(Pi)         
-                else:
-                    P.append(complex(0,0))
-            return P
-        
-        def deslocamento(self, Pts0):
-            Pts = np.array(Pts0)
-            V=[]
-            for Pt in Pts:
-                dist = np.dot((Pt-self.Pem[0]), self.N)
-                if (dist>0): #checa se o ponto  a ser calculado a velocidade está na frente do emissor
-                    Vi=0
-                    for dr in  self.Pem:
-                        rlinha = np.linalg.norm(Pt-dr)
-                        rlinhadir = (Pt-dr)/rlinha
-                        dV = ((complex(0,1)/rlinha)-self.k)*(1/rlinha)*(math.e**(complex(0,-1)*self.k*rlinha))*self.dAEf                    
-                        dV = dV*rlinhadir
-                        Vi = Vi+dV
-                    Vi = (complex(0,-1)*self.U/(self.Lamb*self.k))*Vi
-                    V.append(Vi) 
-                elif dist ==0:
-                    V.append(self.U*self.N)
-                else:
-                    V.append([0,0,0])
-            return V
+            dP = (1/rlinha)*(math.e**(complex(0,-1)*self.k*rlinha))*self.dAEf
+            
+            P = (complex(0,1)*self.rho*self.c0*self.U/self.Lamb)*np.sum(dP, axis = 0)
+
+            return P[:,0]
         
         def PeD(self, Pts0):
-            Pts = np.array(Pts0)
-            PD =[]
-            for Pt in Pts:
-                if (np.dot((Pt-self.Pem[0]), self.N)>0): #checa se o ponto  está na frente do emissor
-                    Pi=0
-                    Vi = 0
-                    for dr in  self.Pem:
-                        rlinha = np.linalg.norm(Pt-dr)
-                        rlinhadir = (Pt-dr)/rlinha
-                        dP = (1/rlinha)*(math.e**(complex(0,-1)*self.k*rlinha))*self.dAEf
-                        Pi = Pi+dP
-                        dV = rlinhadir*((complex(0,1)/rlinha)-self.k)*dP                
-                        Vi = Vi+dV
-                    Pi = (complex(0,1)*self.rho*self.c0*self.U/self.Lamb)*Pi
-                    Vi = (complex(0,-1)*self.U/(self.Lamb*self.k))*Vi
-                    
-                    PD.append((Pi, *Vi))
-                else:
-                    PD.append([complex(0,0)*4])
-            return PD
+            
+            rM = np.array([Pts0])
+            rE = np.transpose(np.array([self.Pem]), [1,0,2])
+            rvec = rM-rE
+            rlinha = np.transpose([np.sqrt(np.sum(rvec**2, axis=2))], [1,2,0])
+            rlinhadir = rvec/rlinha
+            
+            C1 = (1/rlinha)*(math.e**(complex(0,-1)*self.k*rlinha))*self.dAEf
+            C2 = ((complex(0,1)/rlinha)-self.k)
+
+            dP = C1
+            dV = rlinhadir*C1*C2
+            
+            P = (complex(0,1)*self.rho*self.c0*self.U/self.Lamb)*np.sum(dP, axis = 0)
+            V = (complex(0,-1)*self.U/(self.Lamb*self.k))*np.sum(dV, axis=0)
+                        
+            PeD = np.concatenate((P, V), axis=1)
+            
+            return PeD
         
         def ParForca(self, Pts0):
-            Pts = np.array(Pts0)
-            Par =[]
-            for Pt in Pts:
-                if (np.dot((Pt-self.Pem[0]), self.N)>0): #checa se o ponto  está na frente do emissor
-                    Pi=0
-                    Vi = 0
-                    Vdxi = 0
-                    Vdyi = 0
-                    Vdzi = 0
-                    for dr in  self.Pem:
-                        rvec = Pt-dr
-                        rlinha = np.linalg.norm(rvec)
-                        rlinhadir = (Pt-dr)/rlinha
-                        
-                        C1 = (1/rlinha)*(math.e**(complex(0,-1)*self.k*rlinha))*self.dAEf
-                        C2 = ((complex(0,1)/rlinha)-self.k)
-                        C3 = C1/rlinha                      
-                        C4 = rlinhadir*C3*((complex(0,-3)/(rlinha**2))+(3*self.k/rlinha)+(complex(0,1)*(self.k**2)))
-                        C5 = C3*C2
-                        
-                        dP = C1
-                        dV = rlinhadir*C1*C2
-                        dVdxi = [C5,0,0] + C4*rvec[0]
-                        dVdyi = [0,C5,0] + C4*rvec[1]
-                        dVdzi = [0,0,C5] + C4*rvec[2]
-                                                
-                        Pi = Pi+dP               
-                        Vi = Vi+dV
-                        Vdxi = Vdxi + dVdxi
-                        Vdyi = Vdyi + dVdyi
-                        Vdzi = Vdzi + dVdzi
-                        
-                    Pi = (complex(0,1)*self.rho*self.c0*self.U/self.Lamb)*Pi
-                    Vi = (complex(0,-1)*self.U/(self.Lamb*self.k))*Vi
-                    Vdxi = (complex(0,-1)*self.U/(self.Lamb*self.k))*Vdxi
-                    Vdyi = (complex(0,-1)*self.U/(self.Lamb*self.k))*Vdyi
-                    Vdzi = (complex(0,-1)*self.U/(self.Lamb*self.k))*Vdzi
-                    
-                    Par.append((Pi, *Vi, *Vdxi, *Vdyi, *Vdzi))
-                else:
-                    Par.append([complex(0,0)*13])
-            return Par
             
+            rM = np.array([Pts0])
+            rE = np.transpose(np.array([self.Pem]), [1,0,2])
+            rvec = rM-rE
+            rlinha = np.transpose([np.sqrt(np.sum(rvec**2, axis=2))], [1,2,0])
+            rlinhadir = rvec/rlinha
+            
+            C1 = (1/rlinha)*(math.e**(complex(0,-1)*self.k*rlinha))*self.dAEf
+            C2 = ((complex(0,1)/rlinha)-self.k)
+            C3 = C1/rlinha                      
+            C4 = rlinhadir*C3*((complex(0,-3)/(rlinha**2))+(3*self.k/rlinha)+(complex(0,1)*(self.k**2)))
+            C5 = C3*C2
+
+            dP = C1
+            dV = rlinhadir*C1*C2
+
+            
+            dVdx = C4*rvec[:,:,[0]]
+            dVdx[:,:,0] = dVdx[:,:,0] + C5[:,:,0]
+            dVdy = C4*rvec[:,:,[1]]
+            dVdy[:,:,1] = dVdy[:,:,1] + C5[:,:,0]
+            dVdz = C4*rvec[:,:,[2]]
+            dVdz[:,:,2] = dVdz[:,:,2] + C5[:,:,0]
+            
+            P = (complex(0,1)*self.rho*self.c0*self.U/self.Lamb)*np.sum(dP, axis = 0)
+            V = (complex(0,-1)*self.U/(self.Lamb*self.k))*np.sum(dV, axis=0)
+            Vdx = (complex(0,-1)*self.U/(self.Lamb*self.k))*np.sum(dVdx, axis = 0)
+            Vdy = (complex(0,-1)*self.U/(self.Lamb*self.k))*np.sum(dVdy, axis = 0)
+            Vdz = (complex(0,-1)*self.U/(self.Lamb*self.k))*np.sum(dVdz, axis = 0)
+                        
+            Par = np.concatenate((P, V, Vdx, Vdy, Vdz), axis=1)
+            
+            return Par
+        
     class Bola():
         
         def __init__(self, outer, r, n, P0):
@@ -696,106 +563,88 @@ class SimuladorOndas:
             return self.P
         
         def pressao(self,Pts0, Pinc, Dcentro = 0):
-            PboC = np.add(self.Pbo,  Dcentro)
-            Pts = np.array(Pts0)
-            if len(PboC)!=len(Pinc):
+            if len(self.Pbo)!=len(Pinc):
                 raise Exception("tamanho de Pem deve ser igual ao de Pinc")
-            P=[]
-            for Pt in Pts:
-                Pi=0
-                for dr, da, Pin in  zip(PboC, self.A, Pinc):
-                    rlinha = np.linalg.norm(Pt-dr)
-                    dP = Pin*(1/rlinha)*(math.e**(complex(0,-1)*self.k*rlinha))*da
-                    Pi = Pi+dP
-                Pi = Pi*complex(0,1)/self.Lamb
-                P.append(Pi)         
-            return P
-        
-        def deslocamento(self, Pts0,Pinc, Dcentro = 0):
-            PboC = np.add(self.Pbo,  Dcentro)
-            Pts = np.array(Pts0)
-            if len(PboC)!=len(Pinc):
-                raise Exception("tamanho de Pem deve ser igual ao de Pinc")
-            V=[]
-            for Pt in Pts:
-                Vi=0
-                for dr, da, Pin in  zip(PboC,self.A, Pinc):
-                    rlinha = np.linalg.norm(Pt-dr)
-                    rlinhadir = (Pt-dr)/rlinha
-                    dV = ((complex(0,1)/rlinha)-self.k)*(1/rlinha)*(math.e**(complex(0,-1)*self.k*rlinha))*da                  
-                    dV = Pin*dV*rlinhadir
-                    Vi = Vi+dV
-                Vi = Vi*(complex(0,-1)/(self.Lamb*self.k*self.rho*self.c0))
-                V.append(Vi) 
                 
-            return V
+            rM = np.array([Pts0])
+            rE = np.array([[Dcentro]]) + np.transpose(np.array([self.Pbo]), [1,0,2])
+            Pin = np.transpose(np.array([[Pinc]]), [2,0,1])
+            dA = np.transpose(np.array([[self.A]]), [2,0,1])
+            
+            rvec = rM-rE
+            rlinha = np.transpose([np.sqrt(np.sum(rvec**2, axis=2))], [1,2,0])
+
+            dP = Pin*(1/rlinha)*(math.e**(complex(0,-1)*self.k*rlinha))*dA
+
+            P = (complex(0,1)/self.Lamb)*np.sum(dP, axis = 0)
+                               
+            return P[:,0]
+        
         
         def PeD(self,Pts0, Pinc, Dcentro = 0):
-            PboC = np.add(self.Pbo,  Dcentro)
-            Pts = np.array(Pts0)
-            if len(PboC)!=len(Pinc):
+            if len(self.Pbo)!=len(Pinc):
                 raise Exception("tamanho de Pem deve ser igual ao de Pinc")
-            PD=[]
+                
+            rM = np.array([Pts0])
+            rE = np.array([[Dcentro]]) + np.transpose(np.array([self.Pbo]), [1,0,2])
+            Pin = np.transpose(np.array([[Pinc]]), [2,0,1])
+            dA = np.transpose(np.array([[self.A]]), [2,0,1])
+            
+            rvec = rM-rE
+            rlinha = np.transpose([np.sqrt(np.sum(rvec**2, axis=2))], [1,2,0])
+            rlinhadir = rvec/rlinha
+            
+            C1 = Pin*(1/rlinha)*(math.e**(complex(0,-1)*self.k*rlinha))*dA
+            C2 = ((complex(0,1)/rlinha)-self.k)
 
-            for Pt in Pts:
-                Pi=0
-                Vi=0
-                for dr, da, Pin in  zip(PboC, self.A, Pinc):
-                    rlinha = np.linalg.norm(Pt-dr)
-                    rlinhadir = (Pt-dr)/rlinha
-                    dP = Pin*(1/rlinha)*(math.e**(complex(0,-1)*self.k*rlinha))*da
-                    Pi = Pi+dP
-                    dV = rlinhadir*((complex(0,1)/rlinha)-self.k)*dP
-                    Vi = Vi+dV
-                Pi = Pi*complex(0,1)/self.Lamb
-      
-                Vi = Vi*(complex(0,-1)/(self.Lamb*self.k*self.rho*self.c0))
-                PD.append((Pi, *Vi)) 
+            dP = C1
+            dV = rlinhadir*C1*C2
+
+            P = (complex(0,1)/self.Lamb)*np.sum(dP, axis = 0)
+            V = (complex(0,-1)/(self.Lamb*self.k*self.rho*self.c0))*np.sum(dV, axis=0)
+                       
+            PD = np.concatenate((P, V), axis=1)
+            
             return PD
         
-        def ParForca(self,Pts0, Pinc,Dcentro = 0):
-            PboC = np.add(self.Pbo,  Dcentro)
-            Pts = np.array(Pts0)
-            if len(PboC)!=len(Pinc):
+        def ParForca(self,Pts0, Pinc, Dcentro = [0,0,0]):
+            if len(self.Pbo)!=len(Pinc):
                 raise Exception("tamanho de Pem deve ser igual ao de Pinc")
-            Par =[]
-            for Pt in Pts:
-                Pi=0
-                Vi = 0
-                Vdxi = 0
-                Vdyi = 0
-                Vdzi = 0
-                for dr, da, Pin in  zip(PboC, self.A, Pinc):
-                    rvec = Pt-dr
-                    rlinha = np.linalg.norm(rvec)
-                    rlinhadir = (Pt-dr)/rlinha
-                    
-                    C1 = Pin*(1/rlinha)*(math.e**(complex(0,-1)*self.k*rlinha))*da
-                    C2 = ((complex(0,1)/rlinha)-self.k)
-                    C3 = C1/rlinha                      
-                    C4 = rlinhadir*C3*((complex(0,-3)/(rlinha**2))+(3*self.k/rlinha)+(complex(0,1)*(self.k**2)))
-                    C5 = C3*C2
-                    
-                    dP = C1
-                    dV = rlinhadir*C1*C2
-                    dVdxi = [C5,0,0] + C4*rvec[0]
-                    dVdyi = [0,C5,0] + C4*rvec[1]
-                    dVdzi = [0,0,C5] + C4*rvec[2]
-                                            
-                    Pi = Pi+dP               
-                    Vi = Vi+dV
-                    Vdxi = Vdxi + dVdxi
-                    Vdyi = Vdyi + dVdyi
-                    Vdzi = Vdzi + dVdzi
-                    
-                Pi = Pi*complex(0,1)/self.Lamb
-                Vi = (complex(0,-1)/(self.Lamb*self.k*self.rho*self.c0))*Vi
-                Vdxi = (complex(0,-1)/(self.Lamb*self.k*self.rho*self.c0))*Vdxi
-                Vdyi = (complex(0,-1)/(self.Lamb*self.k*self.rho*self.c0))*Vdyi
-                Vdzi = (complex(0,-1)/(self.Lamb*self.k*self.rho*self.c0))*Vdzi
                 
-                Par.append((Pi, *Vi, *Vdxi, *Vdyi, *Vdzi))
-                
+            rM = np.array([Pts0])
+            rE = np.array([[Dcentro]]) + np.transpose(np.array([self.Pbo]), [1,0,2])
+            Pin = np.transpose(np.array([[Pinc]]), [2,0,1])
+            dA = np.transpose(np.array([[self.A]]), [2,0,1])
+            
+            rvec = rM-rE
+            rlinha = np.transpose([np.sqrt(np.sum(rvec**2, axis=2))], [1,2,0])
+            rlinhadir = rvec/rlinha
+            
+            C1 = Pin*(1/rlinha)*(math.e**(complex(0,-1)*self.k*rlinha))*dA
+            C2 = ((complex(0,1)/rlinha)-self.k)
+            C3 = C1/rlinha                      
+            C4 = rlinhadir*C3*((complex(0,-3)/(rlinha**2))+(3*self.k/rlinha)+(complex(0,1)*(self.k**2)))
+            C5 = C3*C2
+
+            dP = C1
+            dV = rlinhadir*C1*C2
+
+            
+            dVdx = C4*rvec[:,:,[0]]
+            dVdx[:,:,0] = dVdx[:,:,0] + C5[:,:,0]
+            dVdy = C4*rvec[:,:,[1]]
+            dVdy[:,:,1] = dVdy[:,:,1] + C5[:,:,0]
+            dVdz = C4*rvec[:,:,[2]]
+            dVdz[:,:,2] = dVdz[:,:,2] + C5[:,:,0]
+
+            P = (complex(0,1)/self.Lamb)*np.sum(dP, axis = 0)
+            V = (complex(0,-1)/(self.Lamb*self.k*self.rho*self.c0))*np.sum(dV, axis=0)
+            Vdx = (complex(0,-1)/(self.Lamb*self.k*self.rho*self.c0))*np.sum(dVdx, axis = 0)
+            Vdy = (complex(0,-1)/(self.Lamb*self.k*self.rho*self.c0))*np.sum(dVdy, axis = 0)
+            Vdz = (complex(0,-1)/(self.Lamb*self.k*self.rho*self.c0))*np.sum(dVdz, axis = 0)
+                        
+            Par = np.concatenate((P, V, Vdx, Vdy, Vdz), axis=1)
+            
             return Par
 
     class Refletor():
@@ -845,108 +694,83 @@ class SimuladorOndas:
             return np.array(self.Prf)
             
         def pressao(self,Pts0, Pinc):
-            Pts = np.array(Pts0)
             if len(self.Prf)!=len(Pinc):
                 raise Exception("tamanho de Pem deve ser igual ao de Pinc")
-            P=[]
-            for Pt in Pts:
-                Pi=0
-                for dr, Pin in  zip(self.Prf, Pinc):
-                    rlinha = np.linalg.norm(Pt-dr)
-                    dP = Pin*(1/rlinha)*(math.e**(complex(0,-1)*self.k*rlinha))*self.dAEf
-                    Pi = Pi+dP
-                Pi = Pi*complex(0,1)/self.Lamb
-                P.append(Pi)         
-            return P
-        
-        def deslocamento(self, Pts0,Pinc):
-            Pts = np.array(Pts0)
-            if len(self.Prf)!=len(Pinc):
-                raise Exception("tamanho de Pem deve ser igual ao de Pinc")
-            V=[]
-            for Pt in Pts:
-                Vi=0
-                for dr, Pin in  zip(self.Prf, Pinc):
-                    rlinha = np.linalg.norm(Pt-dr)
-                    rlinhadir = (Pt-dr)/rlinha
-                    dV = ((complex(0,1)/rlinha)-self.k)*(1/rlinha)*(math.e**(complex(0,-1)*self.k*rlinha))*self.dAEf                    
-                    dV = Pin*dV*rlinhadir
-                    Vi = Vi+dV
-                Vi = Vi*(complex(0,-1)/(self.Lamb*self.k*self.rho*self.c0))
-                V.append(Vi) 
                 
-            return V
+            rM = np.array([Pts0])
+            rE = np.transpose(np.array([self.Prf]), [1,0,2])
+            Pin = np.transpose(np.array([[Pinc]]), [2,0,1])
+            
+            rvec = rM-rE
+            rlinha = np.transpose([np.sqrt(np.sum(rvec**2, axis=2))], [1,2,0])
+            
+            dP = Pin*(1/rlinha)*(math.e**(complex(0,-1)*self.k*rlinha))*self.dAEf              
+
+            P = (complex(0,1)/self.Lamb)*np.sum(dP, axis = 0)
+          
+            return P[:,0]
         
         def PeD(self,Pts0, Pinc):
-            Pts = np.array(Pts0)
             if len(self.Prf)!=len(Pinc):
                 raise Exception("tamanho de Pem deve ser igual ao de Pinc")
-            PD=[]
+                
+            rM = np.array([Pts0])
+            rE = np.transpose(np.array([self.Prf]), [1,0,2])
+            Pin = np.transpose(np.array([[Pinc]]), [2,0,1])
             
-            for Pt in Pts:
-                Pi=0
-                Vi=0
-                for dr, Pin in  zip(self.Prf, Pinc):
-                    rlinha = np.linalg.norm(Pt-dr)
-                    rlinhadir = (Pt-dr)/rlinha
-                    dP = Pin*(1/rlinha)*(math.e**(complex(0,-1)*self.k*rlinha))*self.dAEf
-                    Pi = Pi+dP
-                    dV = rlinhadir*((complex(0,1)/rlinha)-self.k)*dP                   
-                    Vi = Vi+dV
-                Pi = Pi*complex(0,1)/self.Lamb
-                  
-                Vi = Vi*(complex(0,-1)/(self.Lamb*self.k*self.rho*self.c0))
-                PD.append((Pi, *Vi))
+            rvec = rM-rE
+            rlinha = np.transpose([np.sqrt(np.sum(rvec**2, axis=2))], [1,2,0])
+            rlinhadir = rvec/rlinha
+            
+            C1 = Pin*(1/rlinha)*(math.e**(complex(0,-1)*self.k*rlinha))*self.dAEf
+            C2 = ((complex(0,1)/rlinha)-self.k)                
+
+            dP = C1
+            dV = rlinhadir*C1*C2
+
+            P = (complex(0,1)/self.Lamb)*np.sum(dP, axis = 0)
+            V = (complex(0,-1)/(self.Lamb*self.k*self.rho*self.c0))*np.sum(dV, axis=0)
+                        
+            PD = np.concatenate((P, V), axis=1)  
+            
             return PD
         
         def ParForca(self,Pts0, Pinc):
-            Pts = np.array(Pts0)
             if len(self.Prf)!=len(Pinc):
                 raise Exception("tamanho de Pem deve ser igual ao de Pinc")
-            Par =[]
-            for Pt in Pts:
-         
-                Pi=0
-                Vi = 0
-                Vdxi = 0
-                Vdyi = 0
-                Vdzi = 0
                 
-                for dr, Pin in  zip(self.Prf, Pinc):
-                    rvec = Pt-dr
-                    rlinha = np.linalg.norm(rvec)
-                    rlinhadir = (Pt-dr)/rlinha
-                    
-                    C1 = Pin*(1/rlinha)*(math.e**(complex(0,-1)*self.k*rlinha))*self.dAEf
-                    C2 = ((complex(0,1)/rlinha)-self.k)
-                    C3 = C1/rlinha                      
-                    C4 = rlinhadir*C3*((complex(0,-3)/(rlinha**2))+(3*self.k/rlinha)+(complex(0,1)*(self.k**2)))
-                    C5 = C3*C2
-                    
-                    dP = C1
-                    dV = rlinhadir*C1*C2
-                    dVdxi = [C5,0,0] + C4*rvec[0]
-                    dVdyi = [0,C5,0] + C4*rvec[1]
-                    dVdzi = [0,0,C5] + C4*rvec[2]
-                                            
-                    Pi = Pi+dP               
-                    Vi = Vi+dV
-                    Vdxi = Vdxi + dVdxi
-                    Vdyi = Vdyi + dVdyi
-                    Vdzi = Vdzi + dVdzi
-                    
-                Pi = Pi*complex(0,1)/self.Lamb
-                Vi = (complex(0,-1)/(self.Lamb*self.k*self.rho*self.c0))*Vi
-                Vdxi = (complex(0,-1)/(self.Lamb*self.k*self.rho*self.c0))*Vdxi
-                Vdyi = (complex(0,-1)/(self.Lamb*self.k*self.rho*self.c0))*Vdyi
-                Vdzi = (complex(0,-1)/(self.Lamb*self.k*self.rho*self.c0))*Vdzi
-                
-                Par.append((Pi, *Vi, *Vdxi, *Vdyi, *Vdzi))
-                
+            rM = np.array([Pts0])
+            rE = np.transpose(np.array([self.Prf]), [1,0,2])
+            Pin = np.transpose(np.array([[Pinc]]), [2,0,1])
+            
+            rvec = rM-rE
+            rlinha = np.transpose([np.sqrt(np.sum(rvec**2, axis=2))], [1,2,0])
+            rlinhadir = rvec/rlinha
+            
+            C1 = Pin*(1/rlinha)*(math.e**(complex(0,-1)*self.k*rlinha))*self.dAEf
+            C2 = ((complex(0,1)/rlinha)-self.k)
+            C3 = C1/rlinha                      
+            C4 = rlinhadir*C3*((complex(0,-3)/(rlinha**2))+(3*self.k/rlinha)+(complex(0,1)*(self.k**2)))
+            C5 = C3*C2
+
+            dP = C1
+            dV = rlinhadir*C1*C2
+
+            
+            dVdx = C4*rvec[:,:,[0]]
+            dVdx[:,:,0] = dVdx[:,:,0] + C5[:,:,0]
+            dVdy = C4*rvec[:,:,[1]]
+            dVdy[:,:,1] = dVdy[:,:,1] + C5[:,:,0]
+            dVdz = C4*rvec[:,:,[2]]
+            dVdz[:,:,2] = dVdz[:,:,2] + C5[:,:,0]
+
+            P = (complex(0,1)/self.Lamb)*np.sum(dP, axis = 0)
+            V = (complex(0,-1)/(self.Lamb*self.k*self.rho*self.c0))*np.sum(dV, axis=0)
+            Vdx = (complex(0,-1)/(self.Lamb*self.k*self.rho*self.c0))*np.sum(dVdx, axis = 0)
+            Vdy = (complex(0,-1)/(self.Lamb*self.k*self.rho*self.c0))*np.sum(dVdy, axis = 0)
+            Vdz = (complex(0,-1)/(self.Lamb*self.k*self.rho*self.c0))*np.sum(dVdz, axis = 0)
+                        
+            Par = np.concatenate((P, V, Vdx, Vdy, Vdz), axis=1)
+            
             return Par
-        
-        
-
-              
-
 
