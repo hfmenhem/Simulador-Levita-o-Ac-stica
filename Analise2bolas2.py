@@ -13,7 +13,7 @@ Zb = 12e-3
 SO = levitacao.SimuladorOndas(uL='m', uM='kg', uT='s') 
 
 SO.criaEmissor(R, disc, [0,0,1], [0,0,0], 1)
-SO.criaEmissor(R, disc, [0,0,-1], [0,0,D], 1, fase = np.pi)
+SO.criaEmissor(R, disc, [0,0,-1], [0,0,D], 1, fase = 0)
 #SO.criaRefletor(7e-3, 1e-3, [0,0,-1], [0,0,21e-3])
 
 SO.criaBola(1e-3, 20, [0,0,Zb])
