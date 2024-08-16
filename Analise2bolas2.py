@@ -49,15 +49,18 @@ grad = (Fint0[:,1]-Fint0[:,0])/(int0[:,1]-int0[:,0])
 
 
 #Sabendo onde são os pontos de equilibrio, é possível posicionar a bola
-Zb0 = zeros[1]
-Zan = zeros[2]
-Zans = np.linspace(Zan-(zeros[1]-zeros[0])/3, Zan+(zeros[1]-zeros[0])/3, 100)
+Nan = 1
+Nb0 =2
+grad0 = grad[Nan]
+Zb0 = zeros[Nb0]
+Zan = zeros[Nan]
+Zans = np.linspace(Zan-(zeros[1]-zeros[0])/4, Zan+(zeros[1]-zeros[0])/4, 100)
 coordAns = np.zeros([len(Zans), 3])
 coordAns[:,2] = Zans
 
 SO.criaBola(1e-3, 20, [0,0,Zb0])
 
-Zvar = np.linspace((zeros[1]-zeros[0])/8, (zeros[1]-zeros[0])/-8, 20)
+Zvar = np.linspace((zeros[1]-zeros[0])/4, (zeros[1]-zeros[0])/-4, 40)
 coordVar = np.zeros([len(Zvar), 3])
 coordVar[:,2] = Zvar
 
@@ -122,7 +125,7 @@ plt.subplots_adjust(hspace=0.4)
 plt.subplot(2,1,2)
 
 plt.plot(1e3*(Zvar+Zb0), 1e-6*gradsNeq, marker='.', linestyle ='-')
-#plt.plot([1e3*(bm[1]+z0), 1e3*(bm[-1]+z0)], [1e-6*grad0, 1e-6*grad0], marker='', linestyle ='-')
+plt.plot([1e3*(Zvar[0]+Zb0), 1e3*(Zvar[-1]+Zb0)], [1e-6*grad0, 1e-6*grad0], marker='', linestyle ='-')
 
 plt.xlabel( 'Posição da Bola 2 (mm)' )
 plt.ylabel( 'Gradiente Força \n (kN/m^3/nm)')
